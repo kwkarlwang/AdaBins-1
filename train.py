@@ -402,6 +402,11 @@ if __name__ == '__main__':
     args.num_workers = args.workers
     args.ngpus_per_node = ngpus_per_node
 
+    # first download the model to cache the result
+    basemodel_name = 'tf_efficientnet_b5_ap'
+    torch.hub.load('rwightman/gen-efficientnet-pytorch', basemodel_name, pretrained=True)
+
+
     if args.distributed:
         args.world_size = ngpus_per_node * args.world_size
         mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, args))
