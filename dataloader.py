@@ -212,16 +212,16 @@ class DataLoadPreprocess(Dataset):
                     else:
                         depth_gt = depth_gt / 256.0
 
-                seg_gt = False
-                seg_path = None
-                if self.args.dataset == 'nyu':
-                    if len(sample_path.split()) > 3:
-                        seg_path = os.path.join(
-                            gt_path,
-                            remove_leading_slash(sample_path.split()[3]))
-                        seg_gt = Image.open(seg_gt)
-                        seg_gt = np.asarray(seg_gt)
-                        seg_gt = np.expand_dims(seg_gt, axis=2)
+                # seg_gt = False
+                # seg_path = None
+                # if self.args.dataset == 'nyu':
+                #     if len(sample_path.split()) > 3:
+                #         seg_path = os.path.join(
+                #             gt_path,
+                #             remove_leading_slash(sample_path.split()[3]))
+                #         seg_gt = Image.open(seg_gt)
+                #         seg_gt = np.asarray(seg_gt)
+                #         seg_gt = np.expand_dims(seg_gt, axis=2)
 
             if self.args.do_kb_crop is True:
                 height = image.shape[0]
