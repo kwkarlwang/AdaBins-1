@@ -94,8 +94,8 @@ class DataLoadPreprocess(Dataset):
         sample_path = self.filenames[idx]
         focal = float(sample_path.split()[2])
 
-        seg_path = 0
-        seg_gt = 0
+        seg_path = None
+        seg_gt = None
         if self.mode == 'train':
             if self.args.dataset == 'kitti' and self.args.use_right is True and random.random(
             ) > 0.5:
@@ -120,7 +120,7 @@ class DataLoadPreprocess(Dataset):
             image = Image.open(image_path)
             depth_gt = Image.open(depth_path)
 
-            if seg_path != 0:
+            if seg_path is not None:
                 seg_gt = Image.open(seg_path)
 
             # kitti only
@@ -148,7 +148,7 @@ class DataLoadPreprocess(Dataset):
                 depth_gt = self.rotate_image(depth_gt,
                                              random_angle,
                                              flag=Image.NEAREST)
-                if seg_path:
+                if seg_path is not None:
                     seg_gt = self.rotate_image(seg_gt,
                                                random_angle,
                                                flag=Image.NEAREST)
@@ -157,7 +157,7 @@ class DataLoadPreprocess(Dataset):
             depth_gt = np.asarray(depth_gt, dtype=np.float32)
             depth_gt = np.expand_dims(depth_gt, axis=2)
 
-            if seg_gt != 0:
+            if seg_path is not None:
                 seg_gt = np.expand_dims(seg_gt, axis=2)
 
             if self.args.dataset == 'nyu':
@@ -210,7 +210,7 @@ class DataLoadPreprocess(Dataset):
                         depth_gt = depth_gt / 256.0
 
                 seg_gt = 0
-                seg_path = 0
+                seg_path = None
                 if self.args.dataset == 'nyu':
                     if len(sample_path.split()) > 3:
                         seg_path = os.path.join(
@@ -254,7 +254,7 @@ class DataLoadPreprocess(Dataset):
         result = image.rotate(angle, resample=flag)
         return result
 
-    def random_crop(self, img, depth, height, width, seg=0):
+    def random_crop(self, img, depth, height, width, seg=None):
         assert img.shape[0] >= height
         assert img.shape[1] >= width
         assert img.shape[0] == depth.shape[0]
@@ -263,19 +263,21 @@ class DataLoadPreprocess(Dataset):
         y = random.randint(0, img.shape[0] - height)
         img = img[y:y + height, x:x + width, :]
         depth = depth[y:y + height, x:x + width, :]
-        if seg != 0:
+        if seg is not None:
             seg = seg[y:y + height, x:x + width, :]
 
         return img, depth, seg
 
-    def train_preprocess(self, image, depth_gt, seg_gt=0):
+    def train_preprocess(self, image, depth_gt, seg_gt=None):
         # Random flipping
         do_flip = random.random()
         if do_flip > 0.5:
             image = (image[:, ::-1, :]).copy()
             depth_gt = (depth_gt[:, ::-1, :]).copy()
-            if seg_gt != 0:
+            if seg_gt is not None:
                 seg_gt = (seg_gt[:, ::-1, :]).copy()
+            else:
+                seg_gt = 0
 
         # Random gamma, brightness, color augmentation
         do_augment = random.random()
