@@ -23,7 +23,7 @@ from utils import RunningAverage, colorize
 
 # os.environ['WANDB_MODE'] = 'dryrun'
 PROJECT = "MDE-AdaBins"
-logging = True
+logging = False
 
 
 def is_rank_zero(args):
@@ -156,7 +156,7 @@ def train(model,
         # wandb.watch(model)
     ################################################################################################
 
-    train_loader = DepthDataLoader(args, 'train').data
+    train_loader = DepthDataLoader(args, 'train_seg').data
     test_loader = DepthDataLoader(args, 'online_eval').data
 
     ###################################### losses ##############################################
