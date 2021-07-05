@@ -95,7 +95,7 @@ class DataLoadPreprocess(Dataset):
         focal = float(sample_path.split()[2])
 
         seg_path = None
-        seg_gt = None
+        seg_gt = False
         if self.mode == 'train':
             if self.args.dataset == 'kitti' and self.args.use_right is True and random.random(
             ) > 0.5:
@@ -209,7 +209,7 @@ class DataLoadPreprocess(Dataset):
                     else:
                         depth_gt = depth_gt / 256.0
 
-                seg_gt = 0
+                seg_gt = False
                 seg_path = None
                 if self.args.dataset == 'nyu':
                     if len(sample_path.split()) > 3:
@@ -248,13 +248,15 @@ class DataLoadPreprocess(Dataset):
         if self.transform:
             sample = self.transform(sample)
 
+        if sample['seg'] is False:
+            sample['seg'] = 0
         return sample
 
     def rotate_image(self, image, angle, flag=Image.BILINEAR):
         result = image.rotate(angle, resample=flag)
         return result
 
-    def random_crop(self, img, depth, height, width, seg=None):
+    def random_crop(self, img, depth, height, width, seg=False):
         assert img.shape[0] >= height
         assert img.shape[1] >= width
         assert img.shape[0] == depth.shape[0]
@@ -263,21 +265,19 @@ class DataLoadPreprocess(Dataset):
         y = random.randint(0, img.shape[0] - height)
         img = img[y:y + height, x:x + width, :]
         depth = depth[y:y + height, x:x + width, :]
-        if seg is not None:
+        if seg is not False:
             seg = seg[y:y + height, x:x + width, :]
 
         return img, depth, seg
 
-    def train_preprocess(self, image, depth_gt, seg_gt=None):
+    def train_preprocess(self, image, depth_gt, seg_gt=False):
         # Random flipping
         do_flip = random.random()
         if do_flip > 0.5:
             image = (image[:, ::-1, :]).copy()
             depth_gt = (depth_gt[:, ::-1, :]).copy()
-            if seg_gt is not None:
+            if seg_gt is not False:
                 seg_gt = (seg_gt[:, ::-1, :]).copy()
-            else:
-                seg_gt = 0
 
         # Random gamma, brightness, color augmentation
         do_augment = random.random()
@@ -329,7 +329,7 @@ class ToTensor(object):
         seg = sample['seg']
         if self.mode == 'train':
             depth = self.to_tensor(depth)
-            if seg != 0:
+            if seg is not False:
                 seg = self.to_tensor(seg)
             return {'image': image, 'depth': depth, 'focal': focal, 'seg': seg}
         else:
