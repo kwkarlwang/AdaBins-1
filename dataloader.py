@@ -249,10 +249,10 @@ class DataLoadPreprocess(Dataset):
         if self.transform:
             sample = self.transform(sample)
 
-        if self.mode == 'train_seg':
-            print(f"depth shape {sample['depth'].shape}")
-            print(f"image shape {sample['image'].shape}")
-            print(f"seg shape {sample['seg'].shape}")
+        # if self.mode == 'train_seg':
+        #     print(f"depth shape {sample['depth'].shape}")
+        #     print(f"image shape {sample['image'].shape}")
+        #     print(f"seg shape {sample['seg'].shape}")
         return sample
 
     def rotate_image(self, image, angle, flag=Image.BILINEAR):
