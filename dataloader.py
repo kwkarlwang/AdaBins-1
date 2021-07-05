@@ -334,6 +334,7 @@ class ToTensor(object):
         elif self.mode == 'train_seg':
             seg = sample['seg']
             seg = self.to_tensor(seg)
+            depth = self.to_tensor(depth)
             return {'image': image, 'depth': depth, 'focal': focal, 'seg': seg}
         else:
             has_valid_depth = sample['has_valid_depth']
