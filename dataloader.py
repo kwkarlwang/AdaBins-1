@@ -159,7 +159,9 @@ class DataLoadPreprocess(Dataset):
             depth_gt = np.expand_dims(depth_gt, axis=2)
 
             if self.mode == 'train_seg':
+                print(f'before expand: {seg_gt.shape}')
                 seg_gt = np.expand_dims(seg_gt, axis=2)
+                print(f'after expand: {seg_gt.shape}')
 
             if self.args.dataset == 'nyu':
                 depth_gt = depth_gt / 1000.0
