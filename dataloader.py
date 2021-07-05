@@ -25,7 +25,7 @@ def preprocessing_transforms(mode):
 
 class DepthDataLoader(object):
     def __init__(self, args, mode):
-        if mode == 'train':
+        if mode == 'train' or 'train_seg':
             self.training_samples = DataLoadPreprocess(
                 args, mode, transform=preprocessing_transforms(mode))
             if args.distributed:
@@ -64,22 +64,6 @@ class DepthDataLoader(object):
                                    shuffle=False,
                                    num_workers=1)
 
-        elif mode == 'train_seg':
-            self.training_samples = DataLoadPreprocess(
-                args, mode, transform=preprocessing_transforms(mode))
-            if args.distributed:
-                self.train_sampler = torch.utils.data.distributed.DistributedSampler(
-                    self.training_samples)
-            else:
-                self.train_sampler = None
-
-            self.data = DataLoader(self.training_samples,
-                                   args.batch_size,
-                                   shuffle=(self.train_sampler is None),
-                                   num_workers=args.num_threads,
-                                   pin_memory=True,
-                                   sampler=self.train_sampler)
-
         else:
             print('mode should be one of \'train, test, online_eval\'. Got {}'.
                   format(mode))
@@ -96,6 +80,9 @@ class DataLoadPreprocess(Dataset):
         self.args = args
         if mode == 'online_eval':
             with open(args.filenames_file_eval, 'r') as f:
+                self.filenames = f.readlines()
+        elif mode == 'train_seg':
+            with open(args.filenames_file_seg, 'r') as f:
                 self.filenames = f.readlines()
         else:
             with open(args.filenames_file, 'r') as f:

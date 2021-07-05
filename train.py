@@ -473,6 +473,12 @@ if __name__ == '__main__':
         type=str,
         help='path to the filenames text file')
 
+    parser.add_argument(
+        '--filenames_file_seg',
+        default="./train_test_inputs/nyudepthv2_train_files_with_gt_seg.txt",
+        type=str,
+        help='path to the filenames text file with segmentation')
+
     parser.add_argument('--input_height',
                         type=int,
                         help='input height',
