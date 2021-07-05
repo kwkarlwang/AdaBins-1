@@ -160,9 +160,7 @@ class DataLoadPreprocess(Dataset):
 
             if self.mode == 'train_seg':
                 seg_gt = np.asarray(seg_gt)
-                print(f'before expand: {seg_gt.shape}')
                 seg_gt = np.expand_dims(seg_gt, axis=2)
-                print(f'after expand: {seg_gt.shape}')
 
             if self.args.dataset == 'nyu':
                 depth_gt = depth_gt / 1000.0
@@ -244,8 +242,6 @@ class DataLoadPreprocess(Dataset):
                     'has_valid_depth': has_valid_depth,
                     'image_path': sample_path.split()[0],
                     'depth_path': sample_path.split()[1],
-                    'seg': seg_gt,
-                    'seg_path': seg_path
                 }
             else:
                 sample = {'image': image, 'focal': focal}
@@ -253,6 +249,10 @@ class DataLoadPreprocess(Dataset):
         if self.transform:
             sample = self.transform(sample)
 
+        if self.mode == 'train_seg':
+            print(f"depth shape {sample['depth'].shape}")
+            print(f"image shape {sample['image'].shape}")
+            print(f"seg shape {sample['seg'].shape}")
         return sample
 
     def rotate_image(self, image, angle, flag=Image.BILINEAR):
