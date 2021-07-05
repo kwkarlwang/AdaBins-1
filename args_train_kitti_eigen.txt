@@ -1,4 +1,4 @@
---bs 16
+--bs 12
 --dataset kitti
 --distributed
 --lr 0.000357
