@@ -1,4 +1,4 @@
---bs 16
+--bs 3
 --distributed
 --dataset nyu
 --lr 0.000357
