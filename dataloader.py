@@ -64,6 +64,22 @@ class DepthDataLoader(object):
                                    shuffle=False,
                                    num_workers=1)
 
+        elif mode == 'train_seg':
+            self.training_samples = DataLoadPreprocess(
+                args, mode, transform=preprocessing_transforms(mode))
+            if args.distributed:
+                self.train_sampler = torch.utils.data.distributed.DistributedSampler(
+                    self.training_samples)
+            else:
+                self.train_sampler = None
+
+            self.data = DataLoader(self.training_samples,
+                                   args.batch_size,
+                                   shuffle=(self.train_sampler is None),
+                                   num_workers=args.num_threads,
+                                   pin_memory=True,
+                                   sampler=self.train_sampler)
+
         else:
             print('mode should be one of \'train, test, online_eval\'. Got {}'.
                   format(mode))
@@ -94,9 +110,7 @@ class DataLoadPreprocess(Dataset):
         sample_path = self.filenames[idx]
         focal = float(sample_path.split()[2])
 
-        seg_path = None
-        seg_gt = False
-        if self.mode == 'train':
+        if self.mode == 'train' or self.mode == 'train_seg':
             if self.args.dataset == 'kitti' and self.args.use_right is True and random.random(
             ) > 0.5:
                 image_path = os.path.join(
@@ -112,15 +126,15 @@ class DataLoadPreprocess(Dataset):
                 depth_path = os.path.join(
                     self.args.gt_path,
                     remove_leading_slash(sample_path.split()[1]))
-                if len(sample_path.split()) > 3:
+                if self.mode == 'train_seg':
                     seg_path = os.path.join(
                         self.args.gt_path,
                         remove_leading_slash(sample_path.split()[3]))
 
             image = Image.open(image_path)
             depth_gt = Image.open(depth_path)
-
-            if seg_path is not None:
+            seg_gt = False
+            if self.mode == 'train_seg':
                 seg_gt = Image.open(seg_path)
 
             # kitti only
@@ -139,7 +153,7 @@ class DataLoadPreprocess(Dataset):
             if self.args.dataset == 'nyu':
                 depth_gt = depth_gt.crop((43, 45, 608, 472))
                 image = image.crop((43, 45, 608, 472))
-                if seg_path:
+                if self.mode == 'train_seg':
                     seg_gt = seg_gt.crop((43, 45, 608, 472))  # type: ignore
 
             if self.args.do_random_rotate is True:
@@ -148,7 +162,7 @@ class DataLoadPreprocess(Dataset):
                 depth_gt = self.rotate_image(depth_gt,
                                              random_angle,
                                              flag=Image.NEAREST)
-                if seg_path is not None:
+                if self.mode == 'train_seg':
                     seg_gt = self.rotate_image(seg_gt,
                                                random_angle,
                                                flag=Image.NEAREST)
@@ -157,7 +171,7 @@ class DataLoadPreprocess(Dataset):
             depth_gt = np.asarray(depth_gt, dtype=np.float32)
             depth_gt = np.expand_dims(depth_gt, axis=2)
 
-            if seg_path is not None:
+            if self.mode == 'train_seg':
                 seg_gt = np.expand_dims(seg_gt, axis=2)
 
             if self.args.dataset == 'nyu':
@@ -175,8 +189,9 @@ class DataLoadPreprocess(Dataset):
                 'image': image,
                 'depth': depth_gt,
                 'focal': focal,
-                'seg': seg_gt
             }
+            if self.mode == 'train_seg':
+                sample['seg'] = seg_gt
 
         else:
             if self.mode == 'online_eval':
@@ -248,8 +263,6 @@ class DataLoadPreprocess(Dataset):
         if self.transform:
             sample = self.transform(sample)
 
-        if sample['seg'] is False:
-            sample['seg'] = 0
         return sample
 
     def rotate_image(self, image, angle, flag=Image.BILINEAR):
@@ -267,7 +280,6 @@ class DataLoadPreprocess(Dataset):
         depth = depth[y:y + height, x:x + width, :]
         if seg is not False:
             seg = seg[y:y + height, x:x + width, :]
-
         return img, depth, seg
 
     def train_preprocess(self, image, depth_gt, seg_gt=False):
@@ -326,11 +338,12 @@ class ToTensor(object):
             return {'image': image, 'focal': focal}
 
         depth = sample['depth']
-        seg = sample['seg']
         if self.mode == 'train':
             depth = self.to_tensor(depth)
-            if seg is not False:
-                seg = self.to_tensor(seg)
+            return {'image': image, 'depth': depth, 'focal': focal}
+        elif self.mode == 'train_seg':
+            seg = sample['seg']
+            seg = self.to_tensor(seg)
             return {'image': image, 'depth': depth, 'focal': focal, 'seg': seg}
         else:
             has_valid_depth = sample['has_valid_depth']
@@ -341,8 +354,6 @@ class ToTensor(object):
                 'has_valid_depth': has_valid_depth,
                 'image_path': sample['image_path'],
                 'depth_path': sample['depth_path'],
-                'seg': seg,
-                'seg_path': sample['seg_path']
             }
 
     def to_tensor(self, pic):
