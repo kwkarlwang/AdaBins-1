@@ -424,7 +424,7 @@ def validate(
             #         continue
             seg = batch["seg"].to(torch.long).to(device)
             depth = depth.squeeze().unsqueeze(0).unsqueeze(0)
-            seg = seg.squeeze().unsequeeze(0).unsqueeze(0)
+            seg = seg.squeeze().unsqueeze(0).unsqueeze(0)
 
             bins, pred, seg_out = model(img)
 
