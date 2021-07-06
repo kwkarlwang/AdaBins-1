@@ -32,11 +32,13 @@ class UpSampleBN(nn.Module):
 
 
 class ConvBN(nn.Module):
-    def __init__(self, skip_input, output_features):
-        super(UpSampleBN, self).__init__()
+    def __init__(self, input_features, output_features):
+        super(ConvBN, self).__init__()
 
         self._net = nn.Sequential(
-            nn.Conv2d(skip_input, output_features, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(
+                input_features, output_features, kernel_size=3, stride=1, padding=1
+            ),
             nn.BatchNorm2d(output_features),
             nn.LeakyReLU(),
             nn.Conv2d(
@@ -46,19 +48,14 @@ class ConvBN(nn.Module):
             nn.LeakyReLU(),
         )
 
-    def forward(self, x, concat_with):
-        up_x = F.interpolate(
-            x,
-            size=[concat_with.size(2), concat_with.size(3)],
-            mode="bilinear",
-            align_corners=True,
-        )
-        f = torch.cat([up_x, concat_with], dim=1)
-        return self._net(f)
+    def forward(self, x):
+        return self._net(x)
 
 
 class DecoderBN(nn.Module):
-    def __init__(self, num_features=2048, num_classes=1, bottleneck_features=2048):
+    def __init__(
+        self, num_features=2048, num_classes=1, bottleneck_features=2048, seg_classes=40
+    ):
         super(DecoderBN, self).__init__()
         features = int(num_features)
 
@@ -68,7 +65,7 @@ class DecoderBN(nn.Module):
 
         # for depth
         self.depth_up1 = UpSampleBN(
-            skip_input=features // 1 + 112 + 64 + 128, output_features=features // 2
+            skip_input=features // 1 + 112 + 64, output_features=features // 2
         )
         self.depth_up2 = UpSampleBN(
             skip_input=features // 2 + 40 + 24 + 128, output_features=features // 4
@@ -79,17 +76,17 @@ class DecoderBN(nn.Module):
         self.depth_up4 = UpSampleBN(
             skip_input=features // 8 + 16 + 8 + 64, output_features=features // 16
         )
-        seg_to_depth = nn.Conv2d(features // 1, 128, 3, 1)
-
         self.depth_conv3 = nn.Conv2d(
             features // 16 + 64, num_classes, kernel_size=3, stride=1, padding=1
         )
-        self.depth_to_seg_up1 = UpSampleBN(
-            skip_input=features // 1 + 112 + 64, output_features=128
-        )
+
+        self.depth_to_seg_up1 = ConvBN(features // 2, 128)
+        self.depth_to_seg_up2 = ConvBN(features // 4, 64)
+        self.depth_to_seg_up3 = ConvBN(features // 8, 64)
+        self.depth_to_seg_up4 = ConvBN(features // 16, 64)
 
         self.seg_up1 = UpSampleBN(
-            skip_input=features // 1 + 112 + 64 + 128, output_features=features // 2
+            skip_input=features // 1 + 112 + 64, output_features=features // 2
         )
         self.seg_up2 = UpSampleBN(
             skip_input=features // 2 + 40 + 24 + 128, output_features=features // 4
@@ -102,8 +99,13 @@ class DecoderBN(nn.Module):
         )
 
         self.seg_conv3 = nn.Conv2d(
-            features // 16 + 64, num_classes, kernel_size=3, stride=1, padding=1
+            features // 16 + 64, seg_classes, kernel_size=3, stride=1, padding=1
         )
+
+        self.seg_to_depth_up1 = ConvBN(features // 2, 128)
+        self.seg_to_depth_up2 = ConvBN(features // 4, 64)
+        self.seg_to_depth_up3 = ConvBN(features // 8, 64)
+        self.seg_to_depth_up4 = ConvBN(features // 16, 64)
 
     def forward(self, features):
         x_block0, x_block1, x_block2, x_block3, x_block4 = (
@@ -117,17 +119,29 @@ class DecoderBN(nn.Module):
         x_d0 = self.conv2(x_block4)  # x_d0: 2048
 
         x_d1 = self.depth_up1(x_d0, x_block3)
-
         x_s1 = self.seg_up1(x_d0, x_block3)
+        x_s1_prime = self.seg_to_depth_up1(x_s1)
+        x_d1_prime = self.depth_to_seg_up1(x_d1)
 
-        # x_s1_prime = self.seg_to_depth_up1(x_s1)
+        x_d2 = self.depth_up2(torch.cat([x_d1, x_s1_prime], dim=1), x_block2)
+        x_s2 = self.seg_up2(torch.cat([x_s1, x_d1_prime], dim=1), x_block2)
+        x_s2_prime = self.seg_to_depth_up2(x_s2)
+        x_d2_prime = self.depth_to_seg_up2(x_d2)
 
-        x_d2 = self.depth_up2([x_d1, x_s1], x_block2)
-        x_d3 = self.depth_up3(x_d2, x_block1)
-        x_d4 = self.depth_up4(x_d3, x_block0)
-        out = self.depth_conv3(x_d4)
+        x_d3 = self.depth_up3(torch.cat([x_d2, x_s2_prime], dim=1), x_block1)
+        x_s3 = self.seg_up3(torch.cat([x_s2, x_d2_prime], dim=1), x_block1)
+        x_s3_prime = self.seg_to_depth_up3(x_s3)
+        x_d3_prime = self.depth_to_seg_up3(x_d3)
 
-        return out
+        x_d4 = self.depth_up4(torch.cat([x_d3, x_s3_prime], dim=1), x_block0)
+        x_s4 = self.seg_up4(torch.cat([x_s3, x_d3_prime], dim=1), x_block0)
+        x_s4_prime = self.seg_to_depth_up4(x_s4)
+        x_d4_prime = self.depth_to_seg_up4(x_d4)
+
+        depth_out = self.depth_conv3(torch.cat([x_d4, x_s4_prime], dim=1))
+        seg_out = self.seg_conv3(torch.cat([x_s4, x_d4_prime], dim=1))
+
+        return depth_out, seg_out
 
 
 class Encoder(nn.Module):
@@ -169,7 +183,7 @@ class UnetAdaptiveBins(nn.Module):
         )
 
     def forward(self, x, **kwargs):
-        unet_out = self.decoder(self.encoder(x), **kwargs)
+        unet_out, seg_out = self.decoder(self.encoder(x), **kwargs)
         bin_widths_normed, range_attention_maps = self.adaptive_bins_layer(unet_out)
         out = self.conv_out(range_attention_maps)
 
@@ -191,7 +205,7 @@ class UnetAdaptiveBins(nn.Module):
 
         pred = torch.sum(out * centers, dim=1, keepdim=True)
 
-        return bin_edges, pred
+        return bin_edges, pred, seg_out
 
     def get_1x_lr_params(self):  # lr/10 learning rate
         return self.encoder.parameters()

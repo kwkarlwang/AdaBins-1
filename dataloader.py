@@ -45,7 +45,7 @@ class DepthDataLoader(object):
                 sampler=self.train_sampler,
             )
 
-        elif mode == "online_eval":  # test
+        elif mode == "online_eval":
             self.testing_samples = DataLoadPreprocess(
                 args, mode, transform=preprocessing_transforms(mode)
             )

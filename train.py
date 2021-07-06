@@ -171,7 +171,8 @@ def train(
     train_loader = DepthDataLoader(args, "train").data
     test_loader = DepthDataLoader(args, "online_eval").data
 
-    train_seg_loader = DepthDataLoader(args, "train_seg").data
+    if args.use_seg:
+        train_seg_loader = DepthDataLoader(args, "train_seg").data
 
     ###################################### losses ##############################################
     criterion_ueff = SILogLoss()
@@ -201,12 +202,17 @@ def train(
     step = args.epoch * iters
     best_loss = np.inf
 
+    seg_criterion = nn.CrossEntropyLoss()
+
     ###################################### Scheduler ###############################################
+    steps_per_epoch = len(train_loader)
+    if args.use_seg:
+        steps_per_epoch += len(train_seg_loader)
     scheduler = optim.lr_scheduler.OneCycleLR(
         optimizer,
         lr,
         epochs=epochs,
-        steps_per_epoch=len(train_loader),
+        steps_per_epoch=steps_per_epoch,
         cycle_momentum=True,
         base_momentum=0.85,
         max_momentum=0.95,
@@ -223,6 +229,47 @@ def train(
         ################################# Train loop ##########################################################
         if should_log:
             wandb.log({"Epoch": epoch}, step=step)
+
+        for i, batch in (
+            tqdm(
+                enumerate(train_seg_loader),
+                desc=f"Epoch: {epoch + 1}/{epochs}. Loop: Train",
+                total=len(train_seg_loader),
+            )
+            if is_rank_zero(args)
+            else enumerate(train_seg_loader)
+        ):
+            optimizer.zero_grad()
+
+            img = batch["image"].to(device)
+            depth = batch["depth"].to(device)
+            seg = batch["seg"].to(device)
+
+            bin_edges, pred, seg_out = model(img)
+
+            mask = depth > args.min_depth
+            l_dense = criterion_ueff(
+                pred, depth, mask=mask.to(torch.bool), interpolate=True
+            )
+
+            if args.w_chamfer > 0:
+                l_chamfer = criterion_bins(bin_edges, depth)
+            else:
+                l_chamfer = torch.Tensor([0]).to(img.device)
+
+            seg_loss = seg_criterion(seg_out, seg)
+
+            loss = l_dense + args.w_chamfer * l_chamfer + args.w_seg * seg_loss
+            loss.backward()
+            nn.utils.clip_grad_norm_(model.parameters(), 0.1)  # optional
+            optimizer.step()
+            if should_log and step % 5 == 0:
+                wandb.log({f"Train/{criterion_ueff.name}": l_dense.item()}, step=step)
+                wandb.log({f"Train/{criterion_bins.name}": l_chamfer.item()}, step=step)
+
+            step += 1
+            scheduler.step()
+
         for i, batch in (
             tqdm(
                 enumerate(train_loader),
@@ -241,7 +288,7 @@ def train(
                 if not batch["has_valid_depth"]:
                     continue
 
-            bin_edges, pred = model(img)
+            bin_edges, pred, seg_out = model(img)
 
             mask = depth > args.min_depth
             l_dense = criterion_ueff(
@@ -326,7 +373,7 @@ def validate(args, model, test_loader, criterion_ueff, epoch, epochs, device="cp
                 if not batch["has_valid_depth"]:
                     continue
             depth = depth.squeeze().unsqueeze(0).unsqueeze(0)
-            bins, pred = model(img)
+            bins, pred, seg_out = model(img)
 
             mask = depth > args.min_depth
             l_dense = criterion_ueff(
@@ -415,6 +462,15 @@ if __name__ == "__main__":
         type=float,
         help="weight value for chamfer loss",
     )
+
+    parser.add_argument(
+        "--w_seg",
+        "--w-seg",
+        default=0.3,
+        type=float,
+        help="weight value for chamfer loss",
+    )
+
     parser.add_argument(
         "--div-factor",
         "--div_factor",
@@ -484,6 +540,13 @@ if __name__ == "__main__":
         default="./train_test_inputs/nyudepthv2_train_files_with_gt.txt",
         type=str,
         help="path to the filenames text file",
+    )
+
+    parser.add_argument(
+        "--use_seg",
+        default=False,
+        help="if set, will train with segmentation if segmentation is available",
+        action="store_true",
     )
 
     parser.add_argument(
