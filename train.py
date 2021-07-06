@@ -230,7 +230,14 @@ def train(
         ################################# DELETE ##################################################
         model.eval()
         metrics, val_si, miou, val_ce = validate(
-            args, model, test_loader, criterion_ueff, epoch, epochs, device
+            args,
+            model,
+            test_loader,
+            criterion_ueff,
+            epoch,
+            epochs,
+            seg_criterion,
+            device,
         )
 
         # print("Validated: {}".format(metrics))
