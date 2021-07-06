@@ -438,9 +438,7 @@ def validate(
 
             bins, pred, seg_out = model(img)
 
-            seg_out = nn.functional.interpolate(
-                seg_out, seg.shape[-2:], mode="nearest", align_corners=True
-            )
+            seg_out = nn.functional.interpolate(seg_out, seg.shape[-2:], mode="nearest")
             seg_loss = seg_criterion(seg_out, seg)
             val_ce.append(seg_loss)
 
