@@ -29,5 +29,5 @@
 --max_depth_eval 10
 --eigen_crop
 --filenames_file_seg ./train_test_inputs/nyudepthv2_train_files_with_gt_seg.txt
---seg_classes 40
+--seg_classes 41
 --w_seg 0.3
