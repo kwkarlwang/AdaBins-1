@@ -56,6 +56,8 @@ class DepthDataLoader(object):
                 self.eval_sampler = None
             else:
                 self.eval_sampler = None
+            print("HERE")
+            print(args.batch_size)
             self.data = DataLoader(
                 self.testing_samples,
                 1,

@@ -200,7 +200,7 @@ def train(
         optimizer.load_state_dict(optimizer_state_dict)
     ################################################################################################
     # some globals
-    iters = len(train_loader)
+    iters = len(train_loader) + len(train_seg_loader)
     step = args.epoch * iters
     best_loss = np.inf
 
@@ -423,11 +423,12 @@ def validate(
             #     if not batch["has_valid_depth"]:
             #         continue
             seg = batch["seg"].to(torch.long).to(device)
+            depth = depth.squeeze().unsqueeze(0).unsqueeze(0)
+            seg = seg.squeeze().unsqueeze(0)
+
             print(img.shape)
             print(depth.shape)
             print(seg.shape)
-            depth = depth.squeeze().unsqueeze(0).unsqueeze(0)
-            seg = seg.squeeze().unsqueeze(0).unsqueeze(0)
 
             bins, pred, seg_out = model(img)
 
