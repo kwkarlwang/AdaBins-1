@@ -485,7 +485,7 @@ def validate(
             metrics.update(utils.compute_errors(gt_depth[valid_mask], pred[valid_mask]))
 
             seg_out = seg_out.squeeze().cpu().numpy()
-            seg.squeeze().cpu().numpy()
+            seg = seg.squeeze().cpu().numpy()
 
             iou.update(seg_out, seg)
 
