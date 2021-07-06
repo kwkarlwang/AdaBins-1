@@ -173,8 +173,6 @@ def train(
     ################################################################################################
 
     test_loader = DepthDataLoader(args, "online_eval_seg").data
-    print("test_loader_length")
-    print(len(test_loader))
     train_loader = DepthDataLoader(args, "train").data
     train_seg_loader = DepthDataLoader(args, "train_seg").data
 

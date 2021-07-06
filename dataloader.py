@@ -25,7 +25,7 @@ def preprocessing_transforms(mode):
 
 class DepthDataLoader(object):
     def __init__(self, args, mode):
-        if mode == "train" or "train_seg":
+        if mode == "train" or mode == "train_seg":
             self.training_samples = DataLoadPreprocess(
                 args, mode, transform=preprocessing_transforms(mode)
             )
@@ -46,7 +46,6 @@ class DepthDataLoader(object):
             )
 
         elif mode == "online_eval" or mode == "online_eval_seg":
-            print("inside online_eval")
             self.testing_samples = DataLoadPreprocess(
                 args, mode, transform=preprocessing_transforms(mode)
             )
@@ -57,8 +56,6 @@ class DepthDataLoader(object):
                 self.eval_sampler = None
             else:
                 self.eval_sampler = None
-            print("HERE")
-            print(args.batch_size)
             self.data = DataLoader(
                 self.testing_samples,
                 1,
