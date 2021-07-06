@@ -46,6 +46,7 @@ class DepthDataLoader(object):
             )
 
         elif mode == "online_eval" or mode == "online_eval_seg":
+            print("inside online_eval")
             self.testing_samples = DataLoadPreprocess(
                 args, mode, transform=preprocessing_transforms(mode)
             )

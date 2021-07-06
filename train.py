@@ -172,13 +172,17 @@ def train(
         # wandb.watch(model)
     ################################################################################################
 
+    test_loader = DepthDataLoader(args, "online_eval_seg").data
+    print("test_loader_length")
+    print(len(test_loader))
     train_loader = DepthDataLoader(args, "train").data
     train_seg_loader = DepthDataLoader(args, "train_seg").data
-    test_loader = DepthDataLoader(args, "online_eval_seg").data
 
     ###################################### losses ##############################################
     criterion_ueff = SILogLoss()
     criterion_bins = BinsChamferLoss() if args.chamfer else None
+
+    seg_criterion = nn.CrossEntropyLoss()
     ################################################################################################
 
     model.train()
@@ -203,8 +207,6 @@ def train(
     iters = len(train_loader) + len(train_seg_loader)
     step = args.epoch * iters
     best_loss = np.inf
-
-    seg_criterion = nn.CrossEntropyLoss()
 
     ###################################### Scheduler ###############################################
     steps_per_epoch = len(train_loader) + len(train_seg_loader)
@@ -358,7 +360,14 @@ def train(
                 ################################# Validation loop ##################################################
                 model.eval()
                 metrics, val_si, miou, val_ce = validate(
-                    args, model, test_loader, criterion_ueff, epoch, epochs, device
+                    args,
+                    model,
+                    test_loader,
+                    criterion_ueff,
+                    epoch,
+                    epochs,
+                    seg_criterion,
+                    device,
                 )
 
                 # print("Validated: {}".format(metrics))
