@@ -15,8 +15,6 @@ class SILogLoss(nn.Module):  # Main loss function used in AdaBins paper
                 input, target.shape[-2:], mode="bilinear", align_corners=True
             )
 
-        print(input)
-        print(target)
         if mask is not None:
             input = input[mask]
             target = target[mask]

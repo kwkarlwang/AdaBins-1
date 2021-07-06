@@ -486,6 +486,8 @@ def validate(
 
             seg_out = seg_out.squeeze().cpu().numpy()
             seg = seg.squeeze().cpu().numpy()
+            print(seg_out.dtype)
+            print(seg.dtype)
 
             iou.update(seg_out, seg)
 
