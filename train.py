@@ -426,23 +426,18 @@ def validate(
         ):
             img = batch["image"].to(device)
             depth = batch["depth"].to(device)
-            # if "has_valid_depth" in batch:
-            #     if not batch["has_valid_depth"]:
-            #         continue
+            if "has_valid_depth" in batch:
+                if not batch["has_valid_depth"]:
+                    continue
             seg = batch["seg"].to(torch.long).to(device)
             depth = depth.squeeze().unsqueeze(0).unsqueeze(0)
             seg = seg.squeeze().unsqueeze(0)
-
-            print(img.shape)
-            print(depth.shape)
-            print(seg.shape)
 
             bins, pred, seg_out = model(img)
 
             seg_out = nn.functional.interpolate(
                 seg_out, seg.shape[-2:], mode="bilinear", align_corners=True
             )
-            print(seg_out.shape)
             seg_loss = seg_criterion(seg_out, seg)
             val_ce.append(seg_loss)
 

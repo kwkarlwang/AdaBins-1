@@ -213,7 +213,7 @@ class DataLoadPreprocess(Dataset):
                     has_valid_depth = True
                 except IOError:
                     depth_gt = False
-                    # print('Missing gt for {}'.format(image_path))
+                    print("Missing gt for {}".format(image_path))
 
                 if has_valid_depth:
                     depth_gt = np.asarray(depth_gt, dtype=np.float32)
@@ -385,7 +385,7 @@ class ToTensor(object):
             )
 
         if isinstance(pic, np.ndarray):
-            img = torch.from_numpy(np.array(pic.transpose((2, 0, 1))))
+            img = torch.from_numpy(pic.transpose((2, 0, 1)))
             return img
 
         # handle PIL Image
