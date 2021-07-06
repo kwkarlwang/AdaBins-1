@@ -355,6 +355,7 @@ class ToTensor(object):
             depth = self.to_tensor(depth)
             return {"image": image, "depth": depth, "focal": focal, "seg": seg}
         elif self.mode == "online_eval_seg":
+            seg = sample["seg"]
             has_valid_depth = sample["has_valid_depth"]
             return {
                 "image": image,
