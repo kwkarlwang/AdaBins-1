@@ -21,6 +21,9 @@ from dataloader import DepthDataLoader
 from loss import SILogLoss, BinsChamferLoss
 from utils import RunningAverage, colorize
 
+import random
+from torchmetrics import IoU
+
 # os.environ['WANDB_MODE'] = 'dryrun'
 PROJECT = "MDE-AdaBins"
 logging = False
@@ -77,6 +80,7 @@ def main_worker(gpu, ngpus_per_node, args):
         min_val=args.min_depth,
         max_val=args.max_depth,
         norm=args.norm,
+        seg_classes=args.seg_classes,
     )
 
     ################################################################################################
@@ -169,10 +173,8 @@ def train(
     ################################################################################################
 
     train_loader = DepthDataLoader(args, "train").data
-    test_loader = DepthDataLoader(args, "online_eval").data
-
-    if args.use_seg:
-        train_seg_loader = DepthDataLoader(args, "train_seg").data
+    train_seg_loader = DepthDataLoader(args, "train_seg").data
+    test_loader = DepthDataLoader(args, "online_eval_seg").data
 
     ###################################### losses ##############################################
     criterion_ueff = SILogLoss()
@@ -205,9 +207,7 @@ def train(
     seg_criterion = nn.CrossEntropyLoss()
 
     ###################################### Scheduler ###############################################
-    steps_per_epoch = len(train_loader)
-    if args.use_seg:
-        steps_per_epoch += len(train_seg_loader)
+    steps_per_epoch = len(train_loader) + len(train_seg_loader)
     scheduler = optim.lr_scheduler.OneCycleLR(
         optimizer,
         lr,
@@ -229,20 +229,47 @@ def train(
         ################################# Train loop ##########################################################
         if should_log:
             wandb.log({"Epoch": epoch}, step=step)
+        train_loader_it = iter(train_loader)
+        train_loader_is_done = False
+        train_seg_loader_it = iter(train_seg_loader)
+        train_seg_loader_is_done = False
 
         for i, batch in (
             tqdm(
-                enumerate(train_seg_loader),
+                range(steps_per_epoch),
                 desc=f"Epoch: {epoch + 1}/{epochs}. Loop: Train",
-                total=len(train_seg_loader),
+                total=steps_per_epoch,
             )
             if is_rank_zero(args)
-            else enumerate(train_seg_loader)
+            else enumerate(train_loader)
         ):
+            has_seg = False
+            if train_loader_is_done or (
+                train_seg_loader_is_done != False and random.random() < 0.2
+            ):
+                batch = next(train_seg_loader_it, None)
+                has_seg = True
+                if batch is None:
+                    train_seg_loader_is_done = True
+                    batch = next(train_loader_it, None)
+                    if batch is None:
+                        train_loader_is_done = True
+            else:
+                batch = next(train_loader_it, None)
+                if batch is None:
+                    train_loader_is_done = True
+                    batch = next(train_seg_loader_it, None)
+                    has_seg = True
+                    if batch is None:
+                        train_seg_loader_is_done = True
+
             optimizer.zero_grad()
 
             img = batch["image"].to(device)
             depth = batch["depth"].to(device)
+            if "has_valid_depth" in batch:
+                if not batch["has_valid_depth"]:
+                    continue
             seg = batch["seg"].to(device)
 
             bin_edges, pred, seg_out = model(img)
@@ -257,7 +284,7 @@ def train(
             else:
                 l_chamfer = torch.Tensor([0]).to(img.device)
 
-            seg_loss = seg_criterion(seg_out, seg)
+            seg_loss = seg_criterion(seg_out, seg) if has_seg else 0
 
             loss = l_dense + args.w_chamfer * l_chamfer + args.w_seg * seg_loss
             loss.backward()
@@ -266,47 +293,8 @@ def train(
             if should_log and step % 5 == 0:
                 wandb.log({f"Train/{criterion_ueff.name}": l_dense.item()}, step=step)
                 wandb.log({f"Train/{criterion_bins.name}": l_chamfer.item()}, step=step)
-
-            step += 1
-            scheduler.step()
-
-        for i, batch in (
-            tqdm(
-                enumerate(train_loader),
-                desc=f"Epoch: {epoch + 1}/{epochs}. Loop: Train",
-                total=len(train_loader),
-            )
-            if is_rank_zero(args)
-            else enumerate(train_loader)
-        ):
-
-            optimizer.zero_grad()
-
-            img = batch["image"].to(device)
-            depth = batch["depth"].to(device)
-            if "has_valid_depth" in batch:
-                if not batch["has_valid_depth"]:
-                    continue
-
-            bin_edges, pred, seg_out = model(img)
-
-            mask = depth > args.min_depth
-            l_dense = criterion_ueff(
-                pred, depth, mask=mask.to(torch.bool), interpolate=True
-            )
-
-            if args.w_chamfer > 0:
-                l_chamfer = criterion_bins(bin_edges, depth)
-            else:
-                l_chamfer = torch.Tensor([0]).to(img.device)
-
-            loss = l_dense + args.w_chamfer * l_chamfer
-            loss.backward()
-            nn.utils.clip_grad_norm_(model.parameters(), 0.1)  # optional
-            optimizer.step()
-            if should_log and step % 5 == 0:
-                wandb.log({f"Train/{criterion_ueff.name}": l_dense.item()}, step=step)
-                wandb.log({f"Train/{criterion_bins.name}": l_chamfer.item()}, step=step)
+            if should_log and has_seg:
+                wandb.log({f"Train/CrossEntropyLoss": l_chamfer.item()}, step=step)
 
             step += 1
             scheduler.step()
@@ -317,7 +305,7 @@ def train(
 
                 ################################# Validation loop ##################################################
                 model.eval()
-                metrics, val_si = validate(
+                metrics, val_si, miou, val_ce = validate(
                     args, model, test_loader, criterion_ueff, epoch, epochs, device
                 )
 
@@ -326,6 +314,7 @@ def train(
                     wandb.log(
                         {
                             f"Test/{criterion_ueff.name}": val_si.get_value(),
+                            f"Test/CrossEntropyLoss": val_ce.get_value(),
                             # f"Test/{criterion_bins.name}": val_bins.get_value()
                         },
                         step=step,
@@ -334,6 +323,8 @@ def train(
                     wandb.log(
                         {f"Metrics/{k}": v for k, v in metrics.items()}, step=step
                     )
+                    wandb.log({f"Metrics/mIoU": miou}, step=step)
+
                     model_io.save_checkpoint(
                         model,
                         optimizer,
@@ -357,11 +348,18 @@ def train(
     return model
 
 
-def validate(args, model, test_loader, criterion_ueff, epoch, epochs, device="cpu"):
+def validate(
+    args, model, test_loader, criterion_ueff, epoch, epochs, seg_criterion, device="cpu"
+):
     with torch.no_grad():
         val_si = RunningAverage()
         # val_bins = RunningAverage()
         metrics = utils.RunningAverageDict()
+
+        val_ce = RunningAverage()
+
+        iou = IoU(ignore_index=0, num_classes=41)
+
         for batch in (
             tqdm(test_loader, desc=f"Epoch: {epoch + 1}/{epochs}. Loop: Validation")
             if is_rank_zero(args)
@@ -372,8 +370,17 @@ def validate(args, model, test_loader, criterion_ueff, epoch, epochs, device="cp
             if "has_valid_depth" in batch:
                 if not batch["has_valid_depth"]:
                     continue
+            seg = batch["seg"].to(device)
             depth = depth.squeeze().unsqueeze(0).unsqueeze(0)
+            seg = seg
+
             bins, pred, seg_out = model(img)
+
+            seg_out = nn.functional.interpolate(
+                seg_out, seg.shape[-2:], mode="bilinear", align_corners=True
+            )
+            seg_loss = seg_criterion(seg_out, seg)
+            val_ce.append(seg_loss)
 
             mask = depth > args.min_depth
             l_dense = criterion_ueff(
@@ -416,7 +423,12 @@ def validate(args, model, test_loader, criterion_ueff, epoch, epochs, device="cp
             valid_mask = np.logical_and(valid_mask, eval_mask)
             metrics.update(utils.compute_errors(gt_depth[valid_mask], pred[valid_mask]))
 
-        return metrics.get_value(), val_si
+            seg_out = seg_out.squeeze().cpu().numpy()
+            seg.squeeze().cpu().numpy()
+
+            iou.update(seg_out, seg)
+
+        return metrics.get_value(), val_si, iou.compute(), val_ce
 
 
 def convert_arg_line_to_args(arg_line):
@@ -543,13 +555,6 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--use_seg",
-        default=False,
-        help="if set, will train with segmentation if segmentation is available",
-        action="store_true",
-    )
-
-    parser.add_argument(
         "--filenames_file_seg",
         default="./train_test_inputs/nyudepthv2_train_files_with_gt_seg.txt",
         type=str,
@@ -623,6 +628,13 @@ if __name__ == "__main__":
         "--garg_crop",
         help="if set, crops according to Garg  ECCV16",
         action="store_true",
+    )
+
+    parser.add_argument(
+        "--seg_classes",
+        default=41,
+        type=int,
+        help="Number of classes in the segmentation",
     )
 
     if sys.argv.__len__() == 2:
