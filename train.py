@@ -226,6 +226,47 @@ def train(
 
     # max_iter = len(train_loader) * epochs
     for epoch in range(args.epoch, epochs):
+
+        ################################# DELETE ##################################################
+        model.eval()
+        metrics, val_si, miou, val_ce = validate(
+            args, model, test_loader, criterion_ueff, epoch, epochs, device
+        )
+
+        # print("Validated: {}".format(metrics))
+        if should_log:
+            wandb.log(
+                {
+                    f"Test/{criterion_ueff.name}": val_si.get_value(),
+                    f"Test/CrossEntropyLoss": val_ce.get_value(),
+                    # f"Test/{criterion_bins.name}": val_bins.get_value()
+                },
+                step=step,
+            )
+
+            wandb.log({f"Metrics/{k}": v for k, v in metrics.items()}, step=step)
+            wandb.log({f"Metrics/mIoU": miou}, step=step)
+
+            model_io.save_checkpoint(
+                model,
+                optimizer,
+                epoch,
+                f"{experiment_name}_{run_id}_latest.pt",
+                root=os.path.join(root, "checkpoints"),
+            )
+
+        if metrics["abs_rel"] < best_loss and should_write:
+            model_io.save_checkpoint(
+                model,
+                optimizer,
+                epoch,
+                f"{experiment_name}_{run_id}_best.pt",
+                root=os.path.join(root, "checkpoints"),
+            )
+            best_loss = metrics["abs_rel"]
+        model.train()
+        #################################################################################################
+
         ################################# Train loop ##########################################################
         if should_log:
             wandb.log({"Epoch": epoch}, step=step)
@@ -241,8 +282,10 @@ def train(
                 total=steps_per_epoch,
             )
             if is_rank_zero(args)
-            else enumerate(train_loader)
+            else range(steps_per_epoch)
         ):
+
+            #################### random select ########################
             has_seg = False
             if train_loader_is_done or (
                 train_seg_loader_is_done != False and random.random() < 0.2
@@ -262,6 +305,7 @@ def train(
                     has_seg = True
                     if batch is None:
                         train_seg_loader_is_done = True
+            ###########################################################
 
             optimizer.zero_grad()
 
@@ -270,7 +314,8 @@ def train(
             if "has_valid_depth" in batch:
                 if not batch["has_valid_depth"]:
                     continue
-            seg = batch["seg"].to(device)
+            if has_seg:
+                seg = batch["seg"].to(device)
 
             bin_edges, pred, seg_out = model(img)
 
