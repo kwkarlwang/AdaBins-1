@@ -323,6 +323,7 @@ def train(
                     continue
             if has_seg:
                 seg = batch["seg"].to(torch.long).to(device)
+                seg = seg.squeeze()
 
             bin_edges, pred, seg_out = model(img)
 
