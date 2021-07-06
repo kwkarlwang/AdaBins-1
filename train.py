@@ -432,7 +432,7 @@ def validate(
                     continue
             seg = batch["seg"].to(torch.long).to(device)
             depth = depth.squeeze().unsqueeze(0).unsqueeze(0)
-            seg = depth.squeeze().unsqueeze(0)
+            seg = seg.squeeze().unsqueeze(0)
             print("MIN MAX")
             print(seg.min(), seg.max())
 
