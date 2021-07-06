@@ -431,7 +431,8 @@ def validate(
                     continue
             seg = batch["seg"].to(torch.long).to(device)
             depth = depth.squeeze().unsqueeze(0).unsqueeze(0)
-            seg = seg.squeeze().unsqueeze(0)
+            print("MIN MAX")
+            print(seg.min(), seg.max())
 
             bins, pred, seg_out = model(img)
 
@@ -442,6 +443,7 @@ def validate(
             val_ce.append(seg_loss)
 
             mask = depth > args.min_depth
+
             l_dense = criterion_ueff(
                 pred, depth, mask=mask.to(torch.bool), interpolate=True
             )

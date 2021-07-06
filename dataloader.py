@@ -385,7 +385,7 @@ class ToTensor(object):
             )
 
         if isinstance(pic, np.ndarray):
-            img = torch.from_numpy(pic.transpose((2, 0, 1)))
+            img = torch.from_numpy(np.array(pic.transpose((2, 0, 1))))
             return img
 
         # handle PIL Image
