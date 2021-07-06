@@ -424,7 +424,7 @@ def validate(
             #         continue
             seg = batch["seg"].to(device)
             depth = depth.squeeze().unsqueeze(0).unsqueeze(0)
-            seg = seg
+            seg = seg.squeeze().unsequeeze(0).unsqueeze(0)
 
             bins, pred, seg_out = model(img)
 
