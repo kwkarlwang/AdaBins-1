@@ -270,8 +270,6 @@ class DataLoadPreprocess(Dataset):
         #     print(f"depth shape {sample['depth'].shape}")
         #     print(f"image shape {sample['image'].shape}")
         #     print(f"seg shape {sample['seg'].shape}")
-        if "seg" in sample:
-            sample["seg"] = sample["seg"].to(torch.long)
         return sample
 
     def rotate_image(self, image, angle, flag=Image.BILINEAR):

@@ -292,7 +292,7 @@ def train(
             else range(steps_per_epoch)
         ):
 
-            #################### random select ########################
+            #################### random select a loader ########################
             has_seg = False
             if train_loader_is_done or (
                 train_seg_loader_is_done != False and random.random() < 0.2
@@ -322,7 +322,7 @@ def train(
                 if not batch["has_valid_depth"]:
                     continue
             if has_seg:
-                seg = batch["seg"].to(device)
+                seg = batch["seg"].to(torch.long).to(device)
 
             bin_edges, pred, seg_out = model(img)
 
@@ -422,7 +422,7 @@ def validate(
             # if "has_valid_depth" in batch:
             #     if not batch["has_valid_depth"]:
             #         continue
-            seg = batch["seg"].to(device)
+            seg = batch["seg"].to(torch.long).to(device)
             depth = depth.squeeze().unsqueeze(0).unsqueeze(0)
             seg = seg.squeeze().unsequeeze(0).unsqueeze(0)
 
