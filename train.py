@@ -412,9 +412,9 @@ def validate(
         ):
             img = batch["image"].to(device)
             depth = batch["depth"].to(device)
-            if "has_valid_depth" in batch:
-                if not batch["has_valid_depth"]:
-                    continue
+            # if "has_valid_depth" in batch:
+            #     if not batch["has_valid_depth"]:
+            #         continue
             seg = batch["seg"].to(device)
             depth = depth.squeeze().unsqueeze(0).unsqueeze(0)
             seg = seg
