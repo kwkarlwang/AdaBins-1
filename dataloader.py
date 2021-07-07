@@ -228,7 +228,7 @@ class DataLoadPreprocess(Dataset):
                         seg_path = os.path.join(
                             gt_path, remove_leading_slash(sample_path.split()[3])
                         )
-                        seg_gt = Image.open(seg_path)
+                        seg_gt = np.array(Image.open(seg_path))
                         seg_gt = np.asarray(seg_gt)
                         seg_gt = np.expand_dims(seg_gt, axis=2)
 
