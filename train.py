@@ -25,7 +25,7 @@ import random
 
 # os.environ['WANDB_MODE'] = 'dryrun'
 PROJECT = "MDE-AdaBins"
-logging = False
+logging = True
 
 
 def is_rank_zero(args):
