@@ -118,6 +118,7 @@ def main_worker(gpu, ngpus_per_node, args):
         args.multigpu = True
         model = model.cuda()
         model = torch.nn.DataParallel(model)
+        print("USING DATA PARALLEL")
 
     args.epoch = 0
     args.last_epoch = -1
