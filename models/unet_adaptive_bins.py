@@ -107,7 +107,7 @@ class DecoderBN(nn.Module):
         self.seg_to_depth_up3 = ConvBN(features // 8, 64)
         self.seg_to_depth_up4 = ConvBN(features // 16, 64)
 
-    def forward(self, features):
+    def forward(self, features, use_seg=False):
         x_block0, x_block1, x_block2, x_block3, x_block4 = (
             features[4],
             features[5],
@@ -139,9 +139,10 @@ class DecoderBN(nn.Module):
         x_d4_prime = self.depth_to_seg_up4(x_d4)
 
         depth_out = self.depth_conv3(torch.cat([x_d4, x_s4_prime], dim=1))
-        seg_out = self.seg_conv3(torch.cat([x_s4, x_d4_prime], dim=1))
-
-        return depth_out, seg_out
+        if use_seg:
+            seg_out = self.seg_conv3(torch.cat([x_s4, x_d4_prime], dim=1))
+            return depth_out, seg_out
+        return depth_out
 
 
 class Encoder(nn.Module):
@@ -190,8 +191,11 @@ class UnetAdaptiveBins(nn.Module):
             nn.Softmax(dim=1),
         )
 
-    def forward(self, x, **kwargs):
-        unet_out, seg_out = self.decoder(self.encoder(x), **kwargs)
+    def forward(self, x, use_seg=False, **kwargs):
+        if use_seg:
+            unet_out, seg_out = self.decoder(self.encoder(x), use_seg=True, **kwargs)
+        else:
+            unet_out = self.decoder(self.encoder(x), use_seg=False, **kwargs)
         bin_widths_normed, range_attention_maps = self.adaptive_bins_layer(unet_out)
         out = self.conv_out(range_attention_maps)
 
@@ -212,8 +216,9 @@ class UnetAdaptiveBins(nn.Module):
         centers = centers.view(n, dout, 1, 1)
 
         pred = torch.sum(out * centers, dim=1, keepdim=True)
-
-        return bin_edges, pred, seg_out
+        if use_seg:
+            return bin_edges, pred, seg_out
+        return bin_edges, pred
 
     def get_1x_lr_params(self):  # lr/10 learning rate
         return self.encoder.parameters()
