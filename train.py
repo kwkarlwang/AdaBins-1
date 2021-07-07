@@ -292,6 +292,7 @@ def train(
             else:
                 l_chamfer = torch.Tensor([0]).to(img.device)
 
+            loss = l_dense + args.w_chamfer * l_chamfer
             seg_loss = 0
             if has_seg:
                 seg = batch["seg"].to(torch.long).to(device)
@@ -300,10 +301,10 @@ def train(
                     seg_out, seg.shape[-2:], mode="nearest"
                 )
                 seg_loss = seg_criterion(seg_out, seg)
+                loss += args.w_seg * seg_loss
 
-            loss = l_dense + args.w_chamfer * l_chamfer + args.w_seg * seg_loss
             loss.backward()
-            nn.utils.clip_grad_norm_(model.parameters(), 0.1)  # optional
+            # nn.utils.clip_grad_norm_(model.parameters(), 0.1)  # optional
             optimizer.step()
             if should_log and step % 5 == 0:
                 wandb.log({f"Train/{criterion_ueff.name}": l_dense.item()}, step=step)
