@@ -281,7 +281,7 @@ def train(
         train_seg_loader_it = iter(train_seg_loader)
         train_seg_loader_is_done = False
 
-        for i, batch in (
+        for i in (
             tqdm(
                 range(steps_per_epoch),
                 desc=f"Epoch: {epoch + 1}/{epochs}. Loop: Train",
@@ -491,7 +491,7 @@ def validate(
             i += 1
             if i == 50:
                 break
-            miou = iou.compute().cpu().item()
+        miou = iou.compute()
 
         return metrics.get_value(), val_si, miou, val_ce
 
