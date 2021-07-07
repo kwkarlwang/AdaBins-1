@@ -107,10 +107,7 @@ def main_worker(gpu, ngpus_per_node, args):
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
         model = model.cuda(args.gpu)
         model = torch.nn.parallel.DistributedDataParallel(
-            model,
-            device_ids=[args.gpu],
-            output_device=args.gpu,
-            find_unused_parameters=True,
+            model, device_ids=[args.gpu], output_device=args.gpu,
         )
 
     elif args.gpu is None:
