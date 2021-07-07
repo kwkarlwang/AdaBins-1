@@ -435,7 +435,7 @@ def validate(
             depth = depth.squeeze().unsqueeze(0).unsqueeze(0)
             seg = seg.squeeze().unsqueeze(0)
 
-            bins, pred, seg_out = model(img)
+            bins, pred, seg_out = model(img, use_seg=True)
 
             seg_out = nn.functional.interpolate(seg_out, seg.shape[-2:], mode="nearest")
             seg_loss = seg_criterion(seg_out, seg)
