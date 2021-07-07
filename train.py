@@ -484,16 +484,17 @@ def validate(
             valid_mask = np.logical_and(valid_mask, eval_mask)
             metrics.update(utils.compute_errors(gt_depth[valid_mask], pred[valid_mask]))
 
-            seg_out = seg_out.squeeze().cpu().numpy()
-            seg = seg.squeeze().cpu().numpy().astype(np.int32)
-            seg_pred = seg_out.argmax(axis=0).astype(np.int32)
+            seg_out = seg_out.squeeze().cpu()
+            seg = seg.squeeze().cpu()
+            seg_pred = seg_out.argmax(axis=0)
 
             iou.update(seg_pred, seg)
             i += 1
             if i == 50:
                 break
+            miou = iou.compute().cpu().item()
 
-        return metrics.get_value(), val_si, iou.compute(), val_ce
+        return metrics.get_value(), val_si, miou, val_ce
 
 
 def convert_arg_line_to_args(arg_line):
