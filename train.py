@@ -486,7 +486,7 @@ def validate(
 
             seg_out = seg_out.squeeze().cpu().numpy()
             seg = seg.squeeze().cpu().numpy()
-            seg_pred = seg_out.argmax(axis=0).to(np.int64)
+            seg_pred = seg_out.argmax(axis=0).astype(np.int64)
 
             iou.update(seg_pred, seg)
             i += 1
