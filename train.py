@@ -324,7 +324,7 @@ def train(
                 seg = batch["seg"].to(torch.long).to(device)
                 seg = seg.squeeze()
 
-            bin_edges, pred, seg_out = model(img)
+            bin_edges, pred, seg_out = model(img, use_seg=has_seg)
 
             mask = depth > args.min_depth
             l_dense = criterion_ueff(
