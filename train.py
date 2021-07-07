@@ -10,6 +10,7 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.optim as optim
+from torch.tensor import Tensor
 import torch.utils.data.distributed
 import wandb
 from tqdm import tqdm
@@ -296,7 +297,7 @@ def train(
                 )
                 seg_loss = seg_criterion(seg_out, seg)
             else:
-                seg_loss = (seg_out * 0).sum()
+                seg_loss = (seg_out * torch.Tensor([0]).to(device)).mean()
 
             loss = l_dense + args.w_chamfer * l_chamfer + args.w_seg * seg_loss
             loss.backward()
