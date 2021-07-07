@@ -226,53 +226,6 @@ def train(
     # max_iter = len(train_loader) * epochs
     for epoch in range(args.epoch, epochs):
 
-        ################################# DELETE ##################################################
-        model.eval()
-        metrics, val_si, miou, val_ce = validate(
-            args,
-            model,
-            test_loader,
-            criterion_ueff,
-            epoch,
-            epochs,
-            seg_criterion,
-            device,
-        )
-
-        # print("Validated: {}".format(metrics))
-        if should_log:
-            wandb.log(
-                {
-                    f"Test/{criterion_ueff.name}": val_si.get_value(),
-                    f"Test/CrossEntropyLoss": val_ce.get_value(),
-                    # f"Test/{criterion_bins.name}": val_bins.get_value()
-                },
-                step=step,
-            )
-
-            wandb.log({f"Metrics/{k}": v for k, v in metrics.items()}, step=step)
-            wandb.log({f"Metrics/mIoU": miou.item()}, step=step)
-
-            model_io.save_checkpoint(
-                model,
-                optimizer,
-                epoch,
-                f"{experiment_name}_{run_id}_latest.pt",
-                root=os.path.join(root, "checkpoints"),
-            )
-
-        if metrics["abs_rel"] < best_loss and should_write:
-            model_io.save_checkpoint(
-                model,
-                optimizer,
-                epoch,
-                f"{experiment_name}_{run_id}_best.pt",
-                root=os.path.join(root, "checkpoints"),
-            )
-            best_loss = metrics["abs_rel"]
-        model.train()
-        #################################################################################################
-
         ################################# Train loop ##########################################################
         if should_log:
             wandb.log({"Epoch": epoch}, step=step)
@@ -297,8 +250,9 @@ def train(
                 train_seg_loader_is_done != False and random.random() < 0.2
             ):
                 batch = next(train_seg_loader_it, None)
-                has_seg = True
-                if batch is None:
+                if batch is not None:
+                    has_seg = True
+                else:
                     train_seg_loader_is_done = True
                     batch = next(train_loader_it, None)
                     if batch is None:
@@ -308,9 +262,13 @@ def train(
                 if batch is None:
                     train_loader_is_done = True
                     batch = next(train_seg_loader_it, None)
-                    has_seg = True
-                    if batch is None:
+                    if batch is not None:
+                        has_seg = True
+                    else:
                         train_seg_loader_is_done = True
+
+            if train_loader_is_done and train_seg_loader_is_done:
+                break
             ###########################################################
 
             optimizer.zero_grad()
@@ -336,6 +294,8 @@ def train(
             else:
                 l_chamfer = torch.Tensor([0]).to(img.device)
 
+            if has_seg:
+                print(seg_out.shape, seg.shape)
             seg_loss = seg_criterion(seg_out, seg) if has_seg else 0
 
             loss = l_dense + args.w_chamfer * l_chamfer + args.w_seg * seg_loss
