@@ -393,6 +393,7 @@ def validate(
                 if not batch["has_valid_depth"]:
                     continue
             seg = batch["seg"].to(torch.long).to(device)
+            print(img.shape, depth.shape, seg.shape)
             depth = depth.squeeze().unsqueeze(0).unsqueeze(0)
             seg = seg.squeeze().unsqueeze(0)
 

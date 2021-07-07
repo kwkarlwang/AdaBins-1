@@ -229,7 +229,6 @@ class DataLoadPreprocess(Dataset):
                             gt_path, remove_leading_slash(sample_path.split()[3])
                         )
                         seg_gt = np.array(Image.open(seg_path))
-                        seg_gt = np.asarray(seg_gt)
                         seg_gt = np.expand_dims(seg_gt, axis=2)
 
             if self.args.do_kb_crop is True:
