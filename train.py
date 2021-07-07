@@ -252,7 +252,7 @@ def train(
             )
 
             wandb.log({f"Metrics/{k}": v for k, v in metrics.items()}, step=step)
-            wandb.log({f"Metrics/mIoU": miou}, step=step)
+            wandb.log({f"Metrics/mIoU": miou.item()}, step=step)
 
             model_io.save_checkpoint(
                 model,
@@ -420,6 +420,8 @@ def validate(
 
         iou = IoU(ignore_index=0, num_classes=41)
 
+        i = 0
+
         for batch in (
             tqdm(test_loader, desc=f"Epoch: {epoch + 1}/{epochs}. Loop: Validation")
             if is_rank_zero(args)
@@ -433,8 +435,6 @@ def validate(
             seg = batch["seg"].to(torch.long).to(device)
             depth = depth.squeeze().unsqueeze(0).unsqueeze(0)
             seg = seg.squeeze().unsqueeze(0)
-            print("MIN MAX")
-            print(seg.min(), seg.max())
 
             bins, pred, seg_out = model(img)
 
@@ -484,11 +484,14 @@ def validate(
             valid_mask = np.logical_and(valid_mask, eval_mask)
             metrics.update(utils.compute_errors(gt_depth[valid_mask], pred[valid_mask]))
 
-            seg_out = seg_out.squeeze().cpu()
-            seg = seg.squeeze().cpu()
-            seg_pred = seg_out.argmax(axis=0)
+            seg_out = seg_out.squeeze().cpu().numpy()
+            seg = seg.squeeze().cpu().numpy()
+            seg_pred = seg_out.argmax(axis=0).to(np.int64)
 
             iou.update(seg_pred, seg)
+            i += 1
+            if i == 50:
+                break
 
         return metrics.get_value(), val_si, iou.compute(), val_ce
 
