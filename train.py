@@ -484,12 +484,11 @@ def validate(
             valid_mask = np.logical_and(valid_mask, eval_mask)
             metrics.update(utils.compute_errors(gt_depth[valid_mask], pred[valid_mask]))
 
-            seg_out: np.ndarray = seg_out.squeeze().cpu().numpy()
-            seg: np.ndarray = seg.squeeze().cpu().numpy()
-            print(seg_out.dtype)
-            print(seg.dtype)
+            seg_out = seg_out.squeeze().cpu()
+            seg = seg.squeeze().cpu()
+            seg_pred = seg_out.argmax(axis=0)
 
-            iou.update(seg_out.argmax(axis=0), seg)  # type: ignore
+            iou.update(seg_pred, seg)
 
         return metrics.get_value(), val_si, iou.compute(), val_ce
 
