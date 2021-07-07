@@ -107,7 +107,7 @@ class DecoderBN(nn.Module):
         self.seg_to_depth_up3 = ConvBN(features // 8, 64)
         self.seg_to_depth_up4 = ConvBN(features // 16, 64)
 
-    def forward(self, features, use_seg=False):
+    def forward(self, features):
         x_block0, x_block1, x_block2, x_block3, x_block4 = (
             features[4],
             features[5],
@@ -139,10 +139,7 @@ class DecoderBN(nn.Module):
         x_d4_prime = self.depth_to_seg_up4(x_d4)
 
         depth_out = self.depth_conv3(torch.cat([x_d4, x_s4_prime], dim=1))
-        if use_seg:
-            seg_out = self.seg_conv3(torch.cat([x_s4, x_d4_prime], dim=1))
-        else:
-            seg_out = 0
+        seg_out = self.seg_conv3(torch.cat([x_s4, x_d4_prime], dim=1))
 
         return depth_out, seg_out
 
