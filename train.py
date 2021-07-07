@@ -380,8 +380,6 @@ def validate(
 
         iou = IoU(ignore_index=0, num_classes=41)
 
-        i = 0
-
         for batch in (
             tqdm(test_loader, desc=f"Epoch: {epoch + 1}/{epochs}. Loop: Validation")
             if is_rank_zero(args)
@@ -392,11 +390,7 @@ def validate(
             if "has_valid_depth" in batch:
                 if not batch["has_valid_depth"]:
                     continue
-            seg = batch["seg"].to(torch.long).to(device)
-            print(img.shape, depth.shape, seg.shape)
             depth = depth.squeeze().unsqueeze(0).unsqueeze(0)
-            seg = seg.squeeze().unsqueeze(0)
-
             bins, pred, seg_out = model(img, use_seg=True)
 
             mask = depth > args.min_depth
@@ -441,6 +435,9 @@ def validate(
             valid_mask = np.logical_and(valid_mask, eval_mask)
             metrics.update(utils.compute_errors(gt_depth[valid_mask], pred[valid_mask]))
 
+            seg = batch["seg"].to(torch.long).to(device)
+            seg = seg.squeeze().unsqueeze(0)
+
             seg_out = nn.functional.interpolate(seg_out, seg.shape[-2:], mode="nearest")
             seg_loss = seg_criterion(seg_out, seg)
             val_ce.append(seg_loss)
@@ -450,9 +447,6 @@ def validate(
             seg_pred = seg_out.argmax(axis=0)
 
             iou.update(seg_pred, seg)
-            i += 1
-            if i == 50:
-                break
         miou = iou.compute()
 
         return metrics.get_value(), val_si, miou, val_ce
