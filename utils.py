@@ -105,6 +105,32 @@ def compute_errors(gt, pred):
     )
 
 
+class IoU:
+    def __init__(self, num_classes: int, ignore_index: int = None) -> None:
+        self.ignore_index = ignore_index
+        self.num_classes = num_classes
+        self.intersections = np.zeros(num_classes)
+        self.unions = np.zeros(num_classes)
+
+    def update(self, target, pred):
+        # pred:   N, H, W
+        # target: N, H, W
+
+        for i in range(self.num_classes):
+            if i == self.ignore_index:
+                continue
+            predMask = pred == i
+            targetMask = target == i
+            intersection = (predMask & targetMask).sum()
+            union = (predMask | targetMask).sum()
+            self.intersections[i] += intersection
+            self.unions[i] += union
+
+    def compute(self):
+        mask = self.unions != 0
+        return (self.intersections[mask] / self.unions[mask]).mean()
+
+
 ##################################### Demo Utilities ############################################
 def b64_to_pil(b64string):
     image_data = re.sub("^data:image/.+;base64,", "", b64string)

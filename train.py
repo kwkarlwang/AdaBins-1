@@ -19,10 +19,9 @@ import models
 import utils
 from dataloader import DepthDataLoader
 from loss import SILogLoss, BinsChamferLoss
-from utils import RunningAverage, colorize
+from utils import IoU, RunningAverage, colorize
 
 import random
-from torchmetrics import IoU
 
 # os.environ['WANDB_MODE'] = 'dryrun'
 PROJECT = "MDE-AdaBins"
