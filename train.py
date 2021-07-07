@@ -108,7 +108,10 @@ def main_worker(gpu, ngpus_per_node, args):
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
         model = model.cuda(args.gpu)
         model = torch.nn.parallel.DistributedDataParallel(
-            model, device_ids=[args.gpu], output_device=args.gpu,
+            model,
+            device_ids=[args.gpu],
+            output_device=args.gpu,
+            find_unused_parameters=True,
         )
 
     elif args.gpu is None:
@@ -304,7 +307,7 @@ def train(
                 loss += args.w_seg * seg_loss
 
             loss.backward()
-            # nn.utils.clip_grad_norm_(model.parameters(), 0.1)  # optional
+            nn.utils.clip_grad_norm_(model.parameters(), 0.1)  # optional
             optimizer.step()
             if should_log and step % 5 == 0:
                 wandb.log({f"Train/{criterion_ueff.name}": l_dense.item()}, step=step)
