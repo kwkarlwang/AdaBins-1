@@ -545,7 +545,7 @@ if __name__ == "__main__":
         help="Use same LR for all param groups",
     )
     parser.add_argument(
-        "--distributed", default=True, action="store_true", help="Use DDP if set"
+        "--distributed", default=False, action="store_true", help="Use DDP if set"
     )
     parser.add_argument(
         "--root", default=".", type=str, help="Root folder to save data in"
