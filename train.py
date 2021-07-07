@@ -399,10 +399,6 @@ def validate(
 
             bins, pred, seg_out = model(img, use_seg=True)
 
-            seg_out = nn.functional.interpolate(seg_out, seg.shape[-2:], mode="nearest")
-            seg_loss = seg_criterion(seg_out, seg)
-            val_ce.append(seg_loss)
-
             mask = depth > args.min_depth
 
             l_dense = criterion_ueff(
@@ -424,9 +420,9 @@ def validate(
             valid_mask = np.logical_and(
                 gt_depth > args.min_depth_eval, gt_depth < args.max_depth_eval
             )
+            eval_mask = np.zeros(valid_mask.shape)
             if args.garg_crop or args.eigen_crop:
                 gt_height, gt_width = gt_depth.shape
-                eval_mask = np.zeros(valid_mask.shape)
 
                 if args.garg_crop:
                     eval_mask[
@@ -444,6 +440,10 @@ def validate(
                         eval_mask[45:471, 41:601] = 1
             valid_mask = np.logical_and(valid_mask, eval_mask)
             metrics.update(utils.compute_errors(gt_depth[valid_mask], pred[valid_mask]))
+
+            seg_out = nn.functional.interpolate(seg_out, seg.shape[-2:], mode="nearest")
+            seg_loss = seg_criterion(seg_out, seg)
+            val_ce.append(seg_loss)
 
             seg_out = seg_out.squeeze().cpu().numpy()
             seg = seg.squeeze().cpu().numpy()
