@@ -278,10 +278,6 @@ def train(
             if "has_valid_depth" in batch:
                 if not batch["has_valid_depth"]:
                     continue
-            if has_seg:
-                seg = batch["seg"].to(torch.long).to(device)
-                seg = seg.squeeze()
-
             bin_edges, pred, seg_out = model(img, use_seg=has_seg)
 
             mask = depth > args.min_depth
@@ -294,9 +290,14 @@ def train(
             else:
                 l_chamfer = torch.Tensor([0]).to(img.device)
 
+            seg_loss = 0
             if has_seg:
-                print(seg_out.shape, seg.shape)
-            seg_loss = seg_criterion(seg_out, seg) if has_seg else 0
+                seg = batch["seg"].to(torch.long).to(device)
+                seg = seg.squeeze()
+                seg_out = nn.functional.interpolate(
+                    seg_out, seg.shape[-2:], mode="nearest"
+                )
+                seg_loss = seg_criterion(seg_out, seg)
 
             loss = l_dense + args.w_chamfer * l_chamfer + args.w_seg * seg_loss
             loss.backward()
