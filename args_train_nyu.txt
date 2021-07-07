@@ -1,12 +1,11 @@
---bs 8
---distributed
+--bs 12
 --dataset nyu
 --lr 0.000357
 --wd 0.1
 --div_factor 25
 --final_div_factor 100
 --epochs 25
---workers 11
+--workers 13
 --name UnetAdaptiveBins
 --n_bins 256
 --norm linear
