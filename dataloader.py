@@ -88,7 +88,7 @@ def remove_leading_slash(s):
 class DataLoadPreprocess(Dataset):
     def __init__(self, args, mode, transform=None, is_for_online_eval=False):
         self.args = args
-        if mode == "online_eval" or "online_eval_seg":
+        if mode == "online_eval" or mode == "online_eval_seg":
             with open(args.filenames_file_eval, "r") as f:
                 self.filenames = f.readlines()
         elif mode == "train_seg":
