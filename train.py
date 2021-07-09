@@ -90,7 +90,7 @@ def main_worker(gpu, ngpus_per_node, args):
         model = model.cuda(args.gpu)
 
     args.multigpu = False
-    if args.distributed:
+    if not args.distributed:
         # Use DDP
         args.multigpu = True
         args.rank = args.rank * ngpus_per_node + gpu
