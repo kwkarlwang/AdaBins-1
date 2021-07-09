@@ -492,19 +492,21 @@ def validate(
             valid_mask = np.logical_and(valid_mask, eval_mask)
             metrics.update(utils.compute_errors(gt_depth[valid_mask], pred[valid_mask]))
 
-            seg = batch["seg"].to(torch.long).to(device)
-            seg = seg.squeeze().unsqueeze(0)
+            print(device)
+            # seg = batch["seg"].to(torch.long).to(device)
+            # seg = seg.squeeze().unsqueeze(0)
 
-            seg_out = nn.functional.interpolate(seg_out, seg.shape[-2:], mode="nearest")
-            seg_loss = seg_criterion(seg_out, seg)
-            val_ce.append(seg_loss)
+            # seg_out = nn.functional.interpolate(seg_out, seg.shape[-2:], mode="nearest")
+            # seg_loss = seg_criterion(seg_out, seg)
+            # val_ce.append(seg_loss)
 
-            seg_out = seg_out.squeeze().cpu().numpy()
-            seg = seg.squeeze().cpu().numpy()
-            seg_pred = seg_out.argmax(axis=0)
+            # seg_out = seg_out.squeeze().cpu().numpy()
+            # seg = seg.squeeze().cpu().numpy()
+            # seg_pred = seg_out.argmax(axis=0)
 
-            iou.update(seg_pred[eval_mask], seg[eval_mask])
-        miou = iou.compute()
+            # iou.update(seg_pred[eval_mask], seg[eval_mask])
+        # miou = iou.compute()
+        miou = 1
 
         return metrics.get_value(), val_si, miou, val_ce
 
