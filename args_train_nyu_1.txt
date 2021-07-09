@@ -1,5 +1,4 @@
---bs 12
---distributed
+--bs 8
 --dataset nyu
 --lr 0.000357
 --wd 0.1
