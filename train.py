@@ -10,6 +10,7 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.optim as optim
+from torch.tensor import Tensor
 import torch.utils.data.distributed
 import wandb
 from tqdm import tqdm
