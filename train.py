@@ -111,7 +111,7 @@ def main_worker(gpu, ngpus_per_node, args):
             model,
             device_ids=[args.gpu],
             output_device=args.gpu,
-            find_unused_parameters=False,
+            find_unused_parameters=True,
         )
 
     elif args.gpu is None:
