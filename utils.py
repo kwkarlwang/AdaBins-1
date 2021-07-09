@@ -109,8 +109,11 @@ class IoU:
     def __init__(self, num_classes: int, ignore_index: int = None) -> None:
         self.ignore_index = ignore_index
         self.num_classes = num_classes
-        self.intersections = np.zeros(num_classes)
-        self.unions = np.zeros(num_classes)
+        self.intersections = torch.zeros(num_classes)
+        self.unions = torch.zeros(num_classes)
+        if torch.cuda.is_available():
+            self.intersections = self.intersections.cuda()
+            self.unions = self.unions.cuda()
 
     def update(self, target, pred):
         # pred:   N, H, W
@@ -123,12 +126,13 @@ class IoU:
             targetMask = target == i
             intersection = (predMask & targetMask).sum()
             union = (predMask | targetMask).sum()
-            self.intersections[i] += intersection
-            self.unions[i] += union
+            self.intersections[i] += intersection.float()
+            self.unions[i] += union.float()
 
     def compute(self):
         mask = self.unions != 0
-        return (self.intersections[mask] / self.unions[mask]).mean()
+        res = (self.intersections[mask] / self.unions[mask]).mean()
+        return res.cpu().item()
 
 
 ##################################### Demo Utilities ############################################

@@ -500,10 +500,10 @@ def validate(
             seg_loss = seg_criterion(seg_out, seg)
             val_ce.append(seg_loss)
 
-            seg_pred = seg_out.squeeze().argmax(dim=0).cpu().numpy()
-            seg = seg.squeeze().cpu().numpy()
+            seg_pred = seg_out.squeeze().argmax(dim=0)
+            seg = seg.squeeze()
 
-            # iou.update(seg_pred[eval_mask], seg[eval_mask])
+            iou.update(seg_pred[eval_mask], seg[eval_mask])
         miou = iou.compute()
 
         return metrics.get_value(), val_si, miou, val_ce
