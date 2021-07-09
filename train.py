@@ -281,9 +281,11 @@ def train(
                 if not batch["has_valid_depth"]:
                     continue
             if has_seg:
-                bin_edges, pred, seg_out = model(img, use_seg=has_seg)
+                print("Segmentation")
+                bin_edges, pred, seg_out = model(img, use_seg=True)
             else:
-                bin_edges, pred = model(img)
+                print("Raw")
+                bin_edges, pred = model(img, use_seg=False)
 
             mask = depth > args.min_depth
             l_dense = criterion_ueff(
