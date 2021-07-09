@@ -503,7 +503,7 @@ def validate(
             seg_pred = seg_out.squeeze().argmax(dim=0).cpu().numpy()
             seg = seg.squeeze().cpu().numpy()
 
-            iou.update(seg_pred[eval_mask], seg[eval_mask])
+            # iou.update(seg_pred[eval_mask], seg[eval_mask])
         miou = iou.compute()
 
         return metrics.get_value(), val_si, miou, val_ce
