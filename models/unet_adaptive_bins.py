@@ -191,11 +191,11 @@ class UnetAdaptiveBins(nn.Module):
             nn.Softmax(dim=1),
         )
 
-    def forward(self, x, use_seg=False, **kwargs):
+    def forward(self, x, use_seg=False):
         if use_seg:
-            unet_out, seg_out = self.decoder(self.encoder(x), use_seg=True, **kwargs)
+            unet_out, seg_out = self.decoder(features=self.encoder(x), use_seg=True)
         else:
-            unet_out = self.decoder(self.encoder(x), use_seg=False, **kwargs)
+            unet_out = self.decoder(features=self.encoder(x), use_seg=False)
         bin_widths_normed, range_attention_maps = self.adaptive_bins_layer(unet_out)
         out = self.conv_out(range_attention_maps)
 
