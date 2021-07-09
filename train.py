@@ -437,6 +437,7 @@ def validate(
 
         iou = IoU(ignore_index=0, num_classes=41)
 
+        i = 0
         for batch in (
             tqdm(test_loader, desc=f"Epoch: {epoch + 1}/{epochs}. Loop: Validation")
             if is_rank_zero(args)
@@ -492,7 +493,6 @@ def validate(
             valid_mask = np.logical_and(valid_mask, eval_mask)
             metrics.update(utils.compute_errors(gt_depth[valid_mask], pred[valid_mask]))
 
-            print(device)
             seg = batch["seg"].to(torch.long).to(device)
             seg = seg.squeeze().unsqueeze(0)
 
@@ -504,6 +504,11 @@ def validate(
             seg = seg.squeeze()
 
             iou.update(seg_pred[eval_mask], seg[eval_mask])
+
+            i += 1
+            if i > 10:
+                break
+
         miou = iou.compute()
 
         return metrics.get_value(), val_si, miou, val_ce
