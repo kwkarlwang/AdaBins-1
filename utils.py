@@ -135,6 +135,106 @@ class IoU:
         return res.cpu().item()
 
 
+#####################################################################################################
+import numpy as np
+
+
+class _StreamMetrics(object):
+    def __init__(self):
+        """ Overridden by subclasses """
+        raise NotImplementedError()
+
+    def update(self, gt, pred):
+        """ Overridden by subclasses """
+        raise NotImplementedError()
+
+    def get_results(self):
+        """ Overridden by subclasses """
+        raise NotImplementedError()
+
+    def to_str(self, metrics):
+        """ Overridden by subclasses """
+        raise NotImplementedError()
+
+    def reset(self):
+        """ Overridden by subclasses """
+        raise NotImplementedError()
+
+
+class StreamSegMetrics(_StreamMetrics):
+    """
+    Stream Metrics for Semantic Segmentation Task
+    """
+
+    def __init__(self, num_classes):
+        self.num_classes = num_classes
+        self.confusion_matrix = np.zeros((num_classes, num_classes))
+
+    def update(self, label_trues, label_preds):
+        for lt, lp in zip(label_trues, label_preds):
+            self.confusion_matrix += self._fast_hist(lt.flatten(), lp.flatten())
+
+    def compute(self):
+        hist = self.confusion_matrix
+        iu = np.diag(hist) / (hist.sum(axis=1) + hist.sum(axis=0) - np.diag(hist))
+        mean_iu = np.nanmean(iu)
+        # freq = hist.sum(axis=1) / hist.sum()
+        # fwavacc = (freq[freq > 0] * iu[freq > 0]).sum()
+        # cls_iu = dict(zip(range(self.n_classes), iu))
+
+        return mean_iu
+
+    @staticmethod
+    def to_str(results):
+        string = "\n"
+        for k, v in results.items():
+            if k != "Class IoU":
+                string += "%s: %f\n" % (k, v)
+
+        # string+='Class IoU:\n'
+        # for k, v in results['Class IoU'].items():
+        #    string += "\tclass %d: %f\n"%(k, v)
+        return string
+
+    def _fast_hist(self, label_true, label_pred):
+        mask = (label_true > 0) & (label_true < self.num_classes)
+        hist = np.bincount(
+            self.num_classes * label_true[mask].astype(int) + label_pred[mask],
+            minlength=self.num_classes ** 2,
+        ).reshape(self.num_classes, self.num_classes)
+        return hist
+
+    def get_results(self):
+        """Returns accuracy score evaluation result.
+            - overall accuracy
+            - mean accuracy
+            - mean IU
+            - fwavacc
+        """
+        hist = self.confusion_matrix
+        acc = np.diag(hist).sum() / hist.sum()
+        acc_cls = np.diag(hist) / hist.sum(axis=1)
+        acc_cls = np.nanmean(acc_cls)
+        iu = np.diag(hist) / (hist.sum(axis=1) + hist.sum(axis=0) - np.diag(hist))
+        mean_iu = np.nanmean(iu)
+        freq = hist.sum(axis=1) / hist.sum()
+        fwavacc = (freq[freq > 0] * iu[freq > 0]).sum()
+        cls_iu = dict(zip(range(self.num_classes), iu))
+
+        return {
+            "Overall Acc": acc,
+            "Mean Acc": acc_cls,
+            "FreqW Acc": fwavacc,
+            "Mean IoU": mean_iu,
+            "Class IoU": cls_iu,
+        }
+
+    def reset(self):
+        self.confusion_matrix = np.zeros((self.num_classes, self.num_classes))
+
+
+#####################################################################################################
+
 ##################################### Demo Utilities ############################################
 def b64_to_pil(b64string):
     image_data = re.sub("^data:image/.+;base64,", "", b64string)
