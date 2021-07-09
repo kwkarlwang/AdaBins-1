@@ -62,73 +62,110 @@ class DecoderBN(nn.Module):
         super(DecoderBN, self).__init__()
         features = int(num_features)
 
-        self.conv2 = nn.Conv2d(
-            bottleneck_features, features, kernel_size=1, stride=1, padding=1
+        self.conv2 = nn.Conv2d(bottleneck_features, features, kernel_size=1, stride=1, padding=1)
+
+        self.up1 = UpSampleBN(skip_input=features // 1 + 112 + 64, output_features=features // 2)
+        self.up2 = UpSampleBN(skip_input=features // 2 + 40 + 24, output_features=features // 4)
+        self.up3 = UpSampleBN(skip_input=features // 4 + 24 + 16, output_features=features // 8)
+        self.up4 = UpSampleBN(skip_input=features // 8 + 16 + 8, output_features=features // 16)
+
+        #         self.up5 = UpSample(skip_input=features // 16 + 3, output_features=features//16)
+        self.conv3 = nn.Conv2d(features // 16, num_classes, kernel_size=3, stride=1, padding=1)
+        # self.act_out = nn.Softmax(dim=1) if output_activation == 'softmax' else nn.Identity()
+        
+        # DeepLab v3 segmentation head
+        self.classifer = DeepLabHead(in_channels = bottleneck_features, num_classes = 26)
+    
+
+    def forward(self, features, input_shape):
+        x_block0, x_block1, x_block2, x_block3, x_block4 = features[4], features[5], features[6], features[8], features[
+            11]
+
+        x_d0 = self.conv2(x_block4)
+
+        x_d1 = self.up1(x_d0, x_block3)
+        x_d2 = self.up2(x_d1, x_block2)
+        x_d3 = self.up3(x_d2, x_block1)
+        x_d4 = self.up4(x_d3, x_block0)
+        #         x_d5 = self.up5(x_d4, features[0])
+        out = self.conv3(x_d4)
+        # out = self.act_out(out)
+        # if with_features:
+        #     return out, features[-1]
+        # elif with_intermediate:
+        #     return out, [x_block0, x_block1, x_block2, x_block3, x_block4, x_d1, x_d2, x_d3, x_d4]
+        
+        x_seg = self.classifier(x_d0)
+        out_seg = F.interpolate(x, size=input_shape, mode='bilinear', align_corners=False)
+        
+        return out, out_seg
+
+
+class DeepLabHead(nn.Sequential):
+    def __init__(self, in_channels, num_classes):
+        super(DeepLabHead, self).__init__(
+            ASPP(in_channels, [12, 24, 36]),
+            nn.Conv2d(256, 256, 3, padding=1, bias=False),
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+            nn.Conv2d(256, num_classes, 1)
         )
 
-        # for depth
-        self.depth_up1 = UpSampleBN(
-            skip_input=features // 1 + 112 + 64 + 128, output_features=features // 2
-        )
-        self.depth_up2 = UpSampleBN(
-            skip_input=features // 2 + 40 + 24 + 128, output_features=features // 4
-        )
-        self.depth_up3 = UpSampleBN(
-            skip_input=features // 4 + 24 + 16 + 64, output_features=features // 8
-        )
-        self.depth_up4 = UpSampleBN(
-            skip_input=features // 8 + 16 + 8 + 64, output_features=features // 16
-        )
-        seg_to_depth = nn.Conv2d(features // 1, 128, 3, 1)
 
-        self.depth_conv3 = nn.Conv2d(
-            features // 16 + 64, num_classes, kernel_size=3, stride=1, padding=1
-        )
-        self.depth_to_seg_up1 = UpSampleBN(
-            skip_input=features // 1 + 112 + 64, output_features=128
-        )
+class ASPPConv(nn.Sequential):
+    def __init__(self, in_channels, out_channels, dilation):
+        modules = [
+            nn.Conv2d(in_channels, out_channels, 3, padding=dilation, dilation=dilation, bias=False),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU()
+        ]
+        super(ASPPConv, self).__init__(*modules)
 
-        self.seg_up1 = UpSampleBN(
-            skip_input=features // 1 + 112 + 64 + 128, output_features=features // 2
-        )
-        self.seg_up2 = UpSampleBN(
-            skip_input=features // 2 + 40 + 24 + 128, output_features=features // 4
-        )
-        self.seg_up3 = UpSampleBN(
-            skip_input=features // 4 + 24 + 16 + 64, output_features=features // 8
-        )
-        self.seg_up4 = UpSampleBN(
-            skip_input=features // 8 + 16 + 8 + 64, output_features=features // 16
-        )
 
-        self.seg_conv3 = nn.Conv2d(
-            features // 16 + 64, num_classes, kernel_size=3, stride=1, padding=1
-        )
+class ASPPPooling(nn.Sequential):
+    def __init__(self, in_channels, out_channels):
+        super(ASPPPooling, self).__init__(
+            nn.AdaptiveAvgPool2d(1),
+            nn.Conv2d(in_channels, out_channels, 1, bias=False),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU())
 
-    def forward(self, features):
-        x_block0, x_block1, x_block2, x_block3, x_block4 = (
-            features[4],
-            features[5],
-            features[6],
-            features[8],
-            features[11],
-        )
+    def forward(self, x):
+        size = x.shape[-2:]
+        for mod in self:
+            x = mod(x)
+        return F.interpolate(x, size=size, mode='bilinear', align_corners=False)
 
-        x_d0 = self.conv2(x_block4)  # x_d0: 2048
 
-        x_d1 = self.depth_up1(x_d0, x_block3)
+class ASPP(nn.Module):
+    def __init__(self, in_channels, atrous_rates, out_channels=256):
+        super(ASPP, self).__init__()
+        modules = []
+        modules.append(nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, 1, bias=False),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU()))
 
-        x_s1 = self.seg_up1(x_d0, x_block3)
+        rates = tuple(atrous_rates)
+        for rate in rates:
+            modules.append(ASPPConv(in_channels, out_channels, rate))
 
-        # x_s1_prime = self.seg_to_depth_up1(x_s1)
+        modules.append(ASPPPooling(in_channels, out_channels))
 
-        x_d2 = self.depth_up2([x_d1, x_s1], x_block2)
-        x_d3 = self.depth_up3(x_d2, x_block1)
-        x_d4 = self.depth_up4(x_d3, x_block0)
-        out = self.depth_conv3(x_d4)
+        self.convs = nn.ModuleList(modules)
 
-        return out
+        self.project = nn.Sequential(
+            nn.Conv2d(len(self.convs) * out_channels, out_channels, 1, bias=False),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(),
+            nn.Dropout(0.5))
 
+    def forward(self, x):
+        res = []
+        for conv in self.convs:
+            res.append(conv(x))
+        res = torch.cat(res, dim=1)
+        return self.project(res)    
 
 class Encoder(nn.Module):
     def __init__(self, backend):
@@ -169,7 +206,7 @@ class UnetAdaptiveBins(nn.Module):
         )
 
     def forward(self, x, **kwargs):
-        unet_out = self.decoder(self.encoder(x), **kwargs)
+        unet_out, seg_out = self.decoder(self.encoder(x), input_shape = x.shape[-2:], **kwargs)
         bin_widths_normed, range_attention_maps = self.adaptive_bins_layer(unet_out)
         out = self.conv_out(range_attention_maps)
 
@@ -191,7 +228,7 @@ class UnetAdaptiveBins(nn.Module):
 
         pred = torch.sum(out * centers, dim=1, keepdim=True)
 
-        return bin_edges, pred
+        return bin_edges, pred, seg_out
 
     def get_1x_lr_params(self):  # lr/10 learning rate
         return self.encoder.parameters()
