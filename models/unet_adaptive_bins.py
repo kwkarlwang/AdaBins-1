@@ -136,10 +136,10 @@ class DecoderBN(nn.Module):
         x_d4 = self.depth_up4(torch.cat([x_d3, x_s3_prime], dim=1), x_block0)
         x_s4 = self.seg_up4(torch.cat([x_s3, x_d3_prime], dim=1), x_block0)
         x_s4_prime = self.seg_to_depth_up4(x_s4)
-        x_d4_prime = self.depth_to_seg_up4(x_d4)
 
         depth_out = self.depth_conv3(torch.cat([x_d4, x_s4_prime], dim=1))
         if use_seg:
+            x_d4_prime = self.depth_to_seg_up4(x_d4)
             seg_out = self.seg_conv3(torch.cat([x_s4, x_d4_prime], dim=1))
             return depth_out, seg_out
         return depth_out
