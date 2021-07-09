@@ -273,9 +273,20 @@ def train(
                 break
             ###########################################################
             if has_seg:
-                model.unfreeze_seg()
+                if isinstance(model, torch.nn.DataParallel) or isinstance(
+                    model, torch.nn.parallel.DistributedDataParallel
+                ):
+                    model.module.unfreeze_seg()
+                else:
+                    model.unfreeze_seg()
             else:
-                model.freeze_seg()
+
+                if isinstance(model, torch.nn.DataParallel) or isinstance(
+                    model, torch.nn.parallel.DistributedDataParallel
+                ):
+                    model.module.freeze_seg()
+                else:
+                    model.freeze_seg()
 
             optimizer.zero_grad()
 
