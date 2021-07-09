@@ -281,7 +281,7 @@ def train(
                 if not batch["has_valid_depth"]:
                     continue
             if has_seg:
-                bin_edges, pred, seg_out = model(img)
+                bin_edges, pred, seg_out = model(img, use_seg=has_seg)
             else:
                 bin_edges, pred = model(img)
 
