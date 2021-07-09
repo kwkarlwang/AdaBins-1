@@ -272,6 +272,10 @@ def train(
             if train_loader_is_done and train_seg_loader_is_done:
                 break
             ###########################################################
+            if has_seg:
+                model.unfreeze_seg()
+            else:
+                model.freeze_seg()
 
             optimizer.zero_grad()
 
