@@ -436,9 +436,9 @@ def validate(
         val_ce = RunningAverage()
 
         # iou = IoU(ignore_index=0, num_classes=41)
-        iou = StreamSegMetrics(num_classes=41)
+        # iou = StreamSegMetrics(num_classes=41)
 
-        i = 0
+        # i = 0
         for batch in (
             tqdm(test_loader, desc=f"Epoch: {epoch + 1}/{epochs}. Loop: Validation")
             if is_rank_zero(args)
@@ -501,16 +501,17 @@ def validate(
             seg_loss = seg_criterion(seg_out, seg)
             val_ce.append(seg_loss)
 
-            seg_pred = seg_out.squeeze().argmax(dim=0).cpu().numpy()
-            seg = seg.squeeze().cpu().numpy()
+            # seg_pred = seg_out.squeeze().argmax(dim=0).cpu().numpy()
+            # seg = seg.squeeze().cpu().numpy()
 
-            iou.update(seg_pred[eval_mask], seg[eval_mask])
+            # iou.update(seg_pred[eval_mask], seg[eval_mask])
 
-            i += 1
-            if i > 50:
-                break
+            # i += 1
+            # if i > 50:
+            #     break
 
-        miou = iou.compute()
+        # miou = iou.compute()
+        miou = 0
 
         return metrics.get_value(), val_si, miou, val_ce
 
