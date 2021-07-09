@@ -403,7 +403,7 @@ def validate(
                 if not batch["has_valid_depth"]:
                     continue
             depth = depth.squeeze().unsqueeze(0).unsqueeze(0)
-            bins, pred, seg_out = model(img)
+            bins, pred, seg_out = model(img, use_seg=True)
 
             mask = depth > args.min_depth
 
