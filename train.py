@@ -118,7 +118,9 @@ def main_worker(gpu, ngpus_per_node, args):
         # Use DP
         args.multigpu = True
         model = model.cuda()
-        model = torch.nn.DataParallel(model)
+        model = torch.nn.DataParallel(
+            model, device_ids=list(range(args.ngpus_per_node - 1))
+        )
         print("USING DATA PARALLEL")
 
     args.epoch = 0
@@ -226,43 +228,46 @@ def train(
     ################################################################################################
 
     ################################# DELETE ##################################################
-    # model.eval()
-    # metrics, val_si, miou, val_ce = validate(
-    #     args, model, test_loader, criterion_ueff, 0, epochs, seg_criterion, device,
-    # )
+    print("number of gpus")
+    print(args.ngpus_per_node)
+    last_gpu = torch.device(args.ngpus_per_node - 1)
+    model.eval()
+    metrics, val_si, miou, val_ce = validate(
+        args, model, test_loader, criterion_ueff, 0, epochs, seg_criterion, last_gpu,
+    )
 
-    # # print("Validated: {}".format(metrics))
-    # if should_log:
-    #     wandb.log(
-    #         {
-    #             f"Test/{criterion_ueff.name}": val_si.get_value(),
-    #             f"Test/CrossEntropyLoss": val_ce.get_value(),
-    #             # f"Test/{criterion_bins.name}": val_bins.get_value()
-    #         },
-    #         step=step,
-    #     )
+    # print("Validated: {}".format(metrics))
+    if should_log:
+        wandb.log(
+            {
+                f"Test/{criterion_ueff.name}": val_si.get_value(),
+                f"Test/CrossEntropyLoss": val_ce.get_value(),
+                # f"Test/{criterion_bins.name}": val_bins.get_value()
+            },
+            step=step,
+        )
 
-    #     wandb.log({f"Metrics/{k}": v for k, v in metrics.items()}, step=step)
-    #     wandb.log({f"Metrics/mIoU": miou}, step=step)
+        wandb.log({f"Metrics/{k}": v for k, v in metrics.items()}, step=step)
+        wandb.log({f"Metrics/mIoU": miou}, step=step)
 
-    #     model_io.save_checkpoint(
-    #         model,
-    #         optimizer,
-    #         0,
-    #         f"{experiment_name}_{run_id}_latest.pt",
-    #         root=os.path.join(root, "checkpoints"),
-    #     )
+        model_io.save_checkpoint(
+            model,
+            optimizer,
+            0,
+            f"{experiment_name}_{run_id}_latest.pt",
+            root=os.path.join(root, "checkpoints"),
+        )
 
-    # if metrics["abs_rel"] < best_loss and should_write:
-    #     model_io.save_checkpoint(
-    #         model,
-    #         optimizer,
-    #         0,
-    #         f"{experiment_name}_{run_id}_best.pt",
-    #         root=os.path.join(root, "checkpoints"),
-    #     )
-    #     best_loss = metrics["abs_rel"]
-    # model.train()
+    if metrics["abs_rel"] < best_loss and should_write:
+        model_io.save_checkpoint(
+            model,
+            optimizer,
+            0,
+            f"{experiment_name}_{run_id}_best.pt",
+            root=os.path.join(root, "checkpoints"),
+        )
+        best_loss = metrics["abs_rel"]
+    model.train()
     #################################################################################################
     # max_iter = len(train_loader) * epochs
     for epoch in range(args.epoch, epochs):
@@ -435,10 +440,10 @@ def validate(
 
         val_ce = RunningAverage()
 
-        # iou = IoU(ignore_index=0, num_classes=41)
+        iou = IoU(ignore_index=0, num_classes=41, device=device)
         # iou = StreamSegMetrics(num_classes=41)
 
-        # i = 0
+        i = 0
         for batch in (
             tqdm(test_loader, desc=f"Epoch: {epoch + 1}/{epochs}. Loop: Validation")
             if is_rank_zero(args)
@@ -501,17 +506,17 @@ def validate(
             seg_loss = seg_criterion(seg_out, seg)
             val_ce.append(seg_loss)
 
-            # seg_pred = seg_out.squeeze().argmax(dim=0).cpu().numpy()
-            # seg = seg.squeeze().cpu().numpy()
+            seg_pred = seg_out.squeeze().argmax(dim=0)
+            seg = seg.squeeze()
 
-            # iou.update(seg_pred[eval_mask], seg[eval_mask])
+            iou.update(seg_pred[eval_mask], seg[eval_mask])
 
-            # i += 1
-            # if i > 50:
-            #     break
+            i += 1
+            if i > 50:
+                break
 
-        # miou = iou.compute()
-        miou = 0
+        miou = iou.compute()
+        # miou = 0
 
         return metrics.get_value(), val_si, miou, val_ce
 

@@ -106,14 +106,13 @@ def compute_errors(gt, pred):
 
 
 class IoU:
-    def __init__(self, num_classes: int, ignore_index: int = None) -> None:
+    def __init__(
+        self, num_classes: int, ignore_index: int = None, device="cpu"
+    ) -> None:
         self.ignore_index = ignore_index
         self.num_classes = num_classes
-        self.intersections = torch.zeros(num_classes)
-        self.unions = torch.zeros(num_classes)
-        if torch.cuda.is_available():
-            self.intersections = self.intersections.cuda()
-            self.unions = self.unions.cuda()
+        self.intersections = torch.zeros(num_classes).to(device)
+        self.unions = torch.zeros(num_classes).to(device)
 
     def update(self, target, pred):
         # pred:   N, H, W
@@ -136,7 +135,6 @@ class IoU:
 
 
 #####################################################################################################
-import numpy as np
 
 
 class _StreamMetrics(object):
