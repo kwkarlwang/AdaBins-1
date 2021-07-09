@@ -225,6 +225,45 @@ def train(
         scheduler.step(args.epoch + 1)
     ################################################################################################
 
+    ################################# DELETE ##################################################
+    model.eval()
+    metrics, val_si, miou, val_ce = validate(
+        args, model, test_loader, criterion_ueff, 0, epochs, seg_criterion, device,
+    )
+
+    # print("Validated: {}".format(metrics))
+    if should_log:
+        wandb.log(
+            {
+                f"Test/{criterion_ueff.name}": val_si.get_value(),
+                f"Test/CrossEntropyLoss": val_ce.get_value(),
+                # f"Test/{criterion_bins.name}": val_bins.get_value()
+            },
+            step=step,
+        )
+
+        wandb.log({f"Metrics/{k}": v for k, v in metrics.items()}, step=step)
+        wandb.log({f"Metrics/mIoU": miou}, step=step)
+
+        model_io.save_checkpoint(
+            model,
+            optimizer,
+            0,
+            f"{experiment_name}_{run_id}_latest.pt",
+            root=os.path.join(root, "checkpoints"),
+        )
+
+    if metrics["abs_rel"] < best_loss and should_write:
+        model_io.save_checkpoint(
+            model,
+            optimizer,
+            0,
+            f"{experiment_name}_{run_id}_best.pt",
+            root=os.path.join(root, "checkpoints"),
+        )
+        best_loss = metrics["abs_rel"]
+    model.train()
+    #################################################################################################
     # max_iter = len(train_loader) * epochs
     for epoch in range(args.epoch, epochs):
 
@@ -432,7 +471,7 @@ def validate(
             valid_mask = np.logical_and(
                 gt_depth > args.min_depth_eval, gt_depth < args.max_depth_eval
             )
-            eval_mask = np.zeros(valid_mask.shape)
+            eval_mask = np.zeros(valid_mask.shape).astype(int)
             if args.garg_crop or args.eigen_crop:
                 gt_height, gt_width = gt_depth.shape
 
