@@ -26,7 +26,7 @@ import random
 
 # os.environ['WANDB_MODE'] = 'dryrun'
 PROJECT = "MDE-AdaBins"
-logging = True
+logging = False
 
 
 def is_rank_zero(args):
@@ -293,7 +293,7 @@ def train(
             #################### random select a loader ########################
             has_seg = False
             if train_loader_is_done or (
-                train_seg_loader_is_done == False and random.random() < 0.2
+                train_seg_loader_is_done == False and random.random() < 0.1
             ):
                 batch = next(train_seg_loader_it, None)
                 if batch is not None:
@@ -340,6 +340,8 @@ def train(
                 if not batch["has_valid_depth"]:
                     continue
             bin_edges, pred, seg_out = model(img)
+            pred = pred.to(device)
+            seg_out = seg_out.to(device)
 
             mask = depth > args.min_depth
             l_dense = criterion_ueff(
