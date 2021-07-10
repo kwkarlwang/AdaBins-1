@@ -95,7 +95,8 @@ class DecoderBN(nn.Module):
         # elif with_intermediate:
         #     return out, [x_block0, x_block1, x_block2, x_block3, x_block4, x_d1, x_d2, x_d3, x_d4]
         
-        x_seg = self.classifier(x_d0)
+        x_d0_seg = self.conv2(x_block4)
+        x_seg = self.classifier(x_d0_seg)
         out_seg = F.interpolate(x, size=input_shape, mode='bilinear', align_corners=False)
         
         return out, out_seg
