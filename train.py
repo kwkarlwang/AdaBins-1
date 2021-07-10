@@ -118,9 +118,7 @@ def main_worker(gpu, ngpus_per_node, args):
         # Use DP
         args.multigpu = True
         model = model.cuda()
-        model = torch.nn.DataParallel(
-            model, device_ids=list(range(args.ngpus_per_node - 1))
-        )
+        model = torch.nn.DataParallel(model)
         print("USING DATA PARALLEL")
 
     args.epoch = 0
@@ -230,10 +228,10 @@ def train(
     ################################# DELETE ##################################################
     print("number of gpus")
     print(args.ngpus_per_node)
-    last_gpu = torch.device(args.ngpus_per_node - 1)
+    # last_gpu = torch.device(args.ngpus_per_node - 1)
     model.eval()
     metrics, val_si, miou, val_ce = validate(
-        args, model, test_loader, criterion_ueff, 0, epochs, seg_criterion, last_gpu,
+        args, model, test_loader, criterion_ueff, 0, epochs, seg_criterion, device,
     )
 
     # print("Validated: {}".format(metrics))
@@ -388,7 +386,7 @@ def train(
                     epoch,
                     epochs,
                     seg_criterion,
-                    last_gpu,
+                    device,
                 )
 
                 # print("Validated: {}".format(metrics))
@@ -440,8 +438,8 @@ def validate(
 
         val_ce = RunningAverage()
 
-        iou = IoU(ignore_index=0, num_classes=41, device=device)
-        # iou = StreamSegMetrics(num_classes=41)
+        # iou = IoU(ignore_index=0, num_classes=41, device=device)
+        iou = StreamSegMetrics(num_classes=41)
 
         i = 0
         for batch in (
@@ -509,17 +507,10 @@ def validate(
             seg_loss = seg_criterion(seg_out, seg)
             val_ce.append(seg_loss)
 
-            seg_pred = seg_out.squeeze().argmax(dim=0)
-            seg = seg.squeeze()
+            seg_pred = seg_out.squeeze().argmax(dim=0).cpu().numpy()
+            seg = seg.squeeze().cpu().numpy()
 
-            print(seg_pred.shape)
-            print(seg.shape)
-            print(eval_mask.shape)
-            print(seg_pred[eval_mask].shape)
-            print(seg[eval_mask].shape)
-
-            iou.update(seg[eval_mask], seg_pred[eval_mask])
-            print(iou.compute())
+            iou.update(seg, seg_pred)
 
             # i += 1
             # if i > 50:
