@@ -58,7 +58,7 @@ class ConvBN(nn.Module):
 
 
 class DecoderBN(nn.Module):
-    def __init__(self, num_features=2048, num_classes=1, bottleneck_features=2048):
+    def __init__(self, num_features=2048, num_classes=1, bottleneck_features=2048, seg_classes=41):
         super(DecoderBN, self).__init__()
         features = int(num_features)
 
@@ -75,7 +75,7 @@ class DecoderBN(nn.Module):
         # self.act_out = nn.Softmax(dim=1) if output_activation == 'softmax' else nn.Identity()
         
         # DeepLab v3 segmentation head
-        self.classifer = DeepLabHead(in_channels = bottleneck_features, num_classes = 26)
+        self.classifer = DeepLabHead(in_channels = bottleneck_features, num_classes = seg_classes)
     
 
     def forward(self, features, input_shape):
@@ -186,7 +186,7 @@ class Encoder(nn.Module):
 
 
 class UnetAdaptiveBins(nn.Module):
-    def __init__(self, backend, n_bins=100, min_val=0.1, max_val=10, norm="linear"):
+    def __init__(self, backend, n_bins=100, min_val=0.1, max_val=10, norm="linear", seg_classes=41):
         super(UnetAdaptiveBins, self).__init__()
         self.num_classes = n_bins
         self.min_val = min_val
@@ -201,7 +201,7 @@ class UnetAdaptiveBins(nn.Module):
             norm=norm,
         )
 
-        self.decoder = DecoderBN(num_classes=128)
+        self.decoder = DecoderBN(num_classes=128, seg_classes=seg_classes)
         self.conv_out = nn.Sequential(
             nn.Conv2d(128, n_bins, kernel_size=1, stride=1, padding=0),
             nn.Softmax(dim=1),
