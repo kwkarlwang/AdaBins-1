@@ -229,6 +229,39 @@ class UnetAdaptiveBins(nn.Module):
         pred = torch.sum(out * centers, dim=1, keepdim=True)
 
         return bin_edges, pred, seg_out
+    def freeze_seg(self):
+        d = self.decoder
+        freeze_list = [
+            d.seg_conv3,
+            d.seg_to_depth_up1,
+            d.seg_to_depth_up2,
+            d.seg_to_depth_up3,
+            d.seg_to_depth_up4,
+            d.seg_up1,
+            d.seg_up2,
+            d.seg_up3,
+            d.seg_up4,
+        ]
+        for m in freeze_list:
+            for p in m.parameters():
+                p.requires_grad = False
+
+    def unfreeze_seg(self):
+        d = self.decoder
+        freeze_list = [
+            d.seg_conv3,
+            d.seg_to_depth_up1,
+            d.seg_to_depth_up2,
+            d.seg_to_depth_up3,
+            d.seg_to_depth_up4,
+            d.seg_up1,
+            d.seg_up2,
+            d.seg_up3,
+            d.seg_up4,
+        ]
+        for m in freeze_list:
+            for p in m.parameters():
+                p.requires_grad = True
 
     def get_1x_lr_params(self):  # lr/10 learning rate
         return self.encoder.parameters()
