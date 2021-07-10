@@ -26,7 +26,7 @@ import random
 
 # os.environ['WANDB_MODE'] = 'dryrun'
 PROJECT = "MDE-AdaBins"
-logging = True if len(sys.argv) == 2 else False
+logging = True if len(sys.argv) <= 2 else False
 
 
 def is_rank_zero(args):
@@ -730,7 +730,7 @@ if __name__ == "__main__":
         help="Number of classes in the segmentation",
     )
 
-    if sys.argv.__len__() == 2:
+    if sys.argv.__len__() >= 2:
         arg_filename_with_prefix = "@" + sys.argv[1]
         args = parser.parse_args([arg_filename_with_prefix])
     else:
