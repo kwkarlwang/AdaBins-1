@@ -515,8 +515,11 @@ def validate(
             print(seg_pred.shape)
             print(seg.shape)
             print(eval_mask.shape)
+            print(seg_pred[eval_mask].shape)
+            print(seg[eval_mask].shape)
 
             iou.update(seg[eval_mask], seg_pred[eval_mask])
+            print(iou.compute())
 
             # i += 1
             # if i > 50:
