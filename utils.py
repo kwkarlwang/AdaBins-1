@@ -121,9 +121,14 @@ class IoU:
         for i in range(self.num_classes):
             if i == self.ignore_index:
                 continue
+            print(i)
             predMask = pred == i
+            print(predMask.sum())
             targetMask = target == i
+            print(targetMask.sum())
             intersection = (predMask & targetMask).sum()
+            print(intersection)
+            print(intersection.float())
             union = (predMask | targetMask).sum()
             self.intersections[i] += intersection.float()
             self.unions[i] += union.float()
