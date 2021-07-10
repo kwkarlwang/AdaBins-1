@@ -519,6 +519,7 @@ def validate(
             #     break
 
         miou = iou.compute()
+        print("miou: ", miou)
         # miou = 0
 
         return metrics.get_value(), val_si, miou, val_ce
