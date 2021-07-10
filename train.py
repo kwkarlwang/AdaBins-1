@@ -230,7 +230,7 @@ def train(
     ################################# DELETE ##################################################
     print("number of gpus")
     print(args.ngpus_per_node)
-    # last_gpu = torch.device(args.ngpus_per_node - 1)
+    last_gpu = torch.device(args.ngpus_per_node - 1)
     # model.eval()
     # metrics, val_si, miou, val_ce = validate(
     #     args, model, test_loader, criterion_ueff, 0, epochs, seg_criterion, last_gpu,
@@ -388,7 +388,7 @@ def train(
                     epoch,
                     epochs,
                     seg_criterion,
-                    device,
+                    last_gpu,
                 )
 
                 # print("Validated: {}".format(metrics))
