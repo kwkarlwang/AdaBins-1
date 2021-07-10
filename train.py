@@ -293,7 +293,7 @@ def train(
             #################### random select a loader ########################
             has_seg = False
             if train_loader_is_done or (
-                train_seg_loader_is_done == False and random.random() < 0.1
+                train_seg_loader_is_done == False and random.random() < 0.05
             ):
                 batch = next(train_seg_loader_it, None)
                 if batch is not None:

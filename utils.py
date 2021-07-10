@@ -118,6 +118,10 @@ class IoU:
         # pred:   N, H, W
         # target: N, H, W
 
+        print(pred)
+        print(pred.max())
+        print(pred.min())
+        print(pred.shape)
         for i in range(self.num_classes):
             if i == self.ignore_index:
                 continue
