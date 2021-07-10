@@ -509,11 +509,12 @@ def validate(
             seg_loss = seg_criterion(seg_out, seg)
             val_ce.append(seg_loss)
 
-            print(seg_out.shape)
-            print(seg_out)
-
-            seg_pred = seg_out.squeeze().argmax(dim=0).to(torch.long)
+            seg_pred = seg_out.squeeze().argmax(dim=0)
             seg = seg.squeeze()
+
+            print(seg_pred.shape)
+            print(seg_pred)
+            print(seg_pred[eval_mask])
 
             iou.update(seg_pred[eval_mask], seg[eval_mask])
 
