@@ -25,7 +25,7 @@ def preprocessing_transforms(mode):
 
 class DepthDataLoader(object):
     def __init__(self, args, mode):
-        if mode == "train" or "train_seg":
+        if mode == "train" or mode == "train_seg":
             self.training_samples = DataLoadPreprocess(
                 args, mode, transform=preprocessing_transforms(mode)
             )
@@ -45,7 +45,7 @@ class DepthDataLoader(object):
                 sampler=self.train_sampler,
             )
 
-        elif mode == "online_eval":  # test
+        elif mode == "online_eval" or mode == "online_eval_seg":
             self.testing_samples = DataLoadPreprocess(
                 args, mode, transform=preprocessing_transforms(mode)
             )
@@ -88,7 +88,7 @@ def remove_leading_slash(s):
 class DataLoadPreprocess(Dataset):
     def __init__(self, args, mode, transform=None, is_for_online_eval=False):
         self.args = args
-        if mode == "online_eval":
+        if mode == "online_eval" or mode == "online_eval_seg":
             with open(args.filenames_file_eval, "r") as f:
                 self.filenames = f.readlines()
         elif mode == "train_seg":
@@ -190,7 +190,7 @@ class DataLoadPreprocess(Dataset):
                 sample["seg"] = seg_gt
 
         else:
-            if self.mode == "online_eval":
+            if self.mode == "online_eval" or self.mode == "online_eval_seg":
                 data_path = self.args.data_path_eval
             else:
                 data_path = self.args.data_path
@@ -200,7 +200,9 @@ class DataLoadPreprocess(Dataset):
             )
             image = np.asarray(Image.open(image_path), dtype=np.float32) / 255.0
 
-            if self.mode == "online_eval":
+            seg_gt = False
+            seg_path = None
+            if self.mode == "online_eval" or self.mode == "online_eval_seg":
                 gt_path = self.args.gt_path_eval
                 depth_path = os.path.join(
                     gt_path, remove_leading_slash(sample_path.split()[1])
@@ -211,7 +213,7 @@ class DataLoadPreprocess(Dataset):
                     has_valid_depth = True
                 except IOError:
                     depth_gt = False
-                    # print('Missing gt for {}'.format(image_path))
+                    print("Missing gt for {}".format(image_path))
 
                 if has_valid_depth:
                     depth_gt = np.asarray(depth_gt, dtype=np.float32)
@@ -221,16 +223,13 @@ class DataLoadPreprocess(Dataset):
                     else:
                         depth_gt = depth_gt / 256.0
 
-                # seg_gt = False
-                # seg_path = None
-                # if self.args.dataset == 'nyu':
-                #     if len(sample_path.split()) > 3:
-                #         seg_path = os.path.join(
-                #             gt_path,
-                #             remove_leading_slash(sample_path.split()[3]))
-                #         seg_gt = Image.open(seg_gt)
-                #         seg_gt = np.asarray(seg_gt)
-                #         seg_gt = np.expand_dims(seg_gt, axis=2)
+                if self.args.dataset == "nyu":
+                    if self.mode == "online_eval_seg":
+                        seg_path = os.path.join(
+                            gt_path, remove_leading_slash(sample_path.split()[3])
+                        )
+                        seg_gt = np.array(Image.open(seg_path))
+                        seg_gt = np.expand_dims(seg_gt, axis=2)
 
             if self.args.do_kb_crop is True:
                 height = image.shape[0]
@@ -247,7 +246,7 @@ class DataLoadPreprocess(Dataset):
                         :,
                     ]
 
-            if self.mode == "online_eval":
+            if self.mode == "online_eval" or self.mode == "online_eval_seg":
                 sample = {
                     "image": image,
                     "depth": depth_gt,
@@ -256,6 +255,10 @@ class DataLoadPreprocess(Dataset):
                     "image_path": sample_path.split()[0],
                     "depth_path": sample_path.split()[1],
                 }
+                if self.mode == "online_eval_seg":
+                    sample["seg"] = seg_gt
+                    sample["seg_path"] = seg_path
+
             else:
                 sample = {"image": image, "focal": focal}
 
@@ -350,6 +353,19 @@ class ToTensor(object):
             seg = self.to_tensor(seg)
             depth = self.to_tensor(depth)
             return {"image": image, "depth": depth, "focal": focal, "seg": seg}
+        elif self.mode == "online_eval_seg":
+            seg = sample["seg"]
+            has_valid_depth = sample["has_valid_depth"]
+            return {
+                "image": image,
+                "depth": depth,
+                "seg": seg,
+                "focal": focal,
+                "has_valid_depth": has_valid_depth,
+                "image_path": sample["image_path"],
+                "depth_path": sample["depth_path"],
+                "seg_path": sample["seg_path"],
+            }
         else:
             has_valid_depth = sample["has_valid_depth"]
             return {
