@@ -340,8 +340,6 @@ def train(
                 if not batch["has_valid_depth"]:
                     continue
             bin_edges, pred, seg_out = model(img)
-            pred = pred.to(device)
-            seg_out = seg_out.to(device)
 
             mask = depth > args.min_depth
             l_dense = criterion_ueff(
@@ -458,6 +456,9 @@ def validate(
                     continue
             depth = depth.squeeze().unsqueeze(0).unsqueeze(0)
             bins, pred, seg_out = model(img)
+
+            pred = pred.to(device)
+            seg_out = seg_out.to(device)
 
             mask = depth > args.min_depth
 
