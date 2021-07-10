@@ -128,6 +128,10 @@ class IoU:
             self.intersections[i] += intersection.float()
             self.unions[i] += union.float()
 
+        print("update")
+        print(self.intersections)
+        print(self.unions)
+
     def compute(self):
         mask = self.unions != 0
         res = (self.intersections[mask] / self.unions[mask]).mean()

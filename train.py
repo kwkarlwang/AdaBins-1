@@ -514,12 +514,11 @@ def validate(
 
             iou.update(seg_pred[eval_mask], seg[eval_mask])
 
-            # i += 1
-            # if i > 50:
-            #     break
+            i += 1
+            if i > 50:
+                break
 
         miou = iou.compute()
-        print("miou: ", miou)
         # miou = 0
 
         return metrics.get_value(), val_si, miou, val_ce
