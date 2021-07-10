@@ -63,6 +63,7 @@ class DecoderBN(nn.Module):
         features = int(num_features)
 
         self.conv2 = nn.Conv2d(bottleneck_features, features, kernel_size=1, stride=1, padding=1)
+        self.conv2_seg = nn.Conv2d(bottleneck_features, features, kernel_size=1, stride=1, padding=1)
 
         self.up1 = UpSampleBN(skip_input=features // 1 + 112 + 64, output_features=features // 2)
         self.up2 = UpSampleBN(skip_input=features // 2 + 40 + 24, output_features=features // 4)
@@ -95,7 +96,7 @@ class DecoderBN(nn.Module):
         # elif with_intermediate:
         #     return out, [x_block0, x_block1, x_block2, x_block3, x_block4, x_d1, x_d2, x_d3, x_d4]
         
-        x_d0_seg = self.conv2(x_block4)
+        x_d0_seg = self.conv2_seg(x_block4)
         x_seg = self.classifier(x_d0_seg)
         out_seg = F.interpolate(x, size=input_shape, mode='bilinear', align_corners=False)
         
