@@ -277,3 +277,14 @@ class PointCloudHelper:
 
 
 #####################################################################################################
+
+if __name__ == "__main__":
+    iou = IoU(4, 0)
+    pred = torch.Tensor([[[5, 2], [3, 4]], [[5, 6], [7, 8]]])
+    #%%
+    pred
+    #%%
+    target = torch.Tensor([[[5, 1], [3, 3]], [[5, 5], [5, 5]]])
+    #%%
+    iou.update(pred, target)
+    print(iou.compute())
