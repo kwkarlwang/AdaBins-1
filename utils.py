@@ -118,21 +118,21 @@ class IoU:
         # pred:   N, H, W
         # target: N, H, W
 
-        print(pred)
-        print(pred.max())
-        print(pred.min())
-        print(pred.shape)
+        # print(pred)
+        # print(pred.max())
+        # print(pred.min())
+        # print(pred.shape)
         for i in range(self.num_classes):
             if i == self.ignore_index:
                 continue
-            print(i)
+            # print(i)
             predMask = pred == i
-            print(predMask.sum())
+            # print(predMask.sum())
             targetMask = target == i
-            print(targetMask.sum())
+            # print(targetMask.sum())
             intersection = (predMask & targetMask).sum()
-            print(intersection)
-            print(intersection.float())
+            # print(intersection)
+            # print(intersection.float())
             union = (predMask | targetMask).sum()
             self.intersections[i] += intersection.float()
             self.unions[i] += union.float()
