@@ -512,7 +512,9 @@ def validate(
             seg_pred = seg_out.squeeze().argmax(dim=0)
             seg = seg.squeeze()
 
+            print(seg.shape)
             print(seg[eval_mask])
+            print(seg.max())
 
             iou.update(seg_pred[eval_mask], seg[eval_mask])
 
