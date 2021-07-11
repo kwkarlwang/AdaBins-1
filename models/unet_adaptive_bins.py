@@ -235,7 +235,6 @@ class UnetAdaptiveBins(nn.Module):
         d = self.decoder
         freeze_list = [
             d.conv2_seg,
-            d.seg_to_depth_up1,
             d.classifier
         ]
         for m in freeze_list:
@@ -246,7 +245,6 @@ class UnetAdaptiveBins(nn.Module):
         d = self.decoder
         freeze_list = [
             d.conv2_seg,
-            d.seg_to_depth_up1,
             d.classifier
         ]
         for m in freeze_list:
