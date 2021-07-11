@@ -187,10 +187,19 @@ def train(
     model.train()
 
     ###################################### Optimizer ################################################
+
+    if isinstance(model, torch.nn.DataParallel) or isinstance(
+        model, torch.nn.parallel.DistributedDataParallel
+    ):
+        model.module.unfreeze_seg()
+    else:
+        model.unfreeze_seg()
+
     if args.same_lr:
         print("Using same LR")
         params = model.parameters()
     else:
+
         print("Using diff LR")
         m = model.module if args.multigpu else model
         params = [
@@ -199,16 +208,14 @@ def train(
         ]
 
     optimizer = optim.AdamW(params, weight_decay=args.wd, lr=args.lr)
-    if optimizer_state_dict is not None:
-        optimizer.load_state_dict(optimizer_state_dict)
     ################################################################################################
     # some globals
-    iters = len(train_loader) + len(train_seg_loader)
+    iters = len(train_seg_loader)
     step = args.epoch * iters
     best_loss = np.inf
 
     ###################################### Scheduler ###############################################
-    steps_per_epoch = len(train_loader) + len(train_seg_loader)
+    steps_per_epoch = len(train_seg_loader)
     scheduler = optim.lr_scheduler.OneCycleLR(
         optimizer,
         lr,
@@ -224,110 +231,170 @@ def train(
     if args.resume != "" and scheduler is not None:
         scheduler.step(args.epoch + 1)
     ################################################################################################
+    print("START PRE TRAINING")
+    for epoch in range(args.epoch, epochs):
+
+        ################################# Train loop ##########################################################
+        for batch in tqdm(train_seg_loader):
+
+            ###########################################################
+            optimizer.zero_grad()
+
+            img = batch["image"].to(device)
+            depth = batch["depth"].to(device)
+            if "has_valid_depth" in batch:
+                if not batch["has_valid_depth"]:
+                    continue
+            bin_edges, pred, seg_out = model(img)
+
+            mask = depth > args.min_depth
+            l_dense = criterion_ueff(
+                pred, depth, mask=mask.to(torch.bool), interpolate=True
+            )
+
+            if args.w_chamfer > 0:
+                l_chamfer = criterion_bins(bin_edges, depth)
+            else:
+                l_chamfer = torch.Tensor([0]).to(img.device)
+
+            loss = l_dense + args.w_chamfer * l_chamfer
+
+            seg = batch["seg"].to(torch.long).to(device)
+            seg = seg.squeeze()
+            seg_out = nn.functional.interpolate(seg_out, seg.shape[-2:], mode="nearest")
+            seg_loss = seg_criterion(seg_out, seg)
+            loss += args.w_seg * seg_loss
+
+            loss.backward()
+            nn.utils.clip_grad_norm_(model.parameters(), 0.1)  # optional
+            optimizer.step()
+            if should_log and step % 5 == 0:
+                wandb.log(
+                    {f"PreTrain/{criterion_ueff.name}": l_dense.item()}, step=step
+                )
+                wandb.log(
+                    {f"PreTrain/{criterion_bins.name}": l_chamfer.item()}, step=step
+                )
+                wandb.log({f"PreTrain/CrossEntropyLoss": l_chamfer.item()}, step=step)
+
+            step += 1
+            scheduler.step()
+
+            if should_write and step % args.validate_every == 0:
+
+                ################################# Validation loop ##################################################
+                model.eval()
+                metrics, val_si, miou, val_ce = validate(
+                    args,
+                    model,
+                    test_loader,
+                    criterion_ueff,
+                    epoch,
+                    epochs,
+                    seg_criterion,
+                    device,
+                )
+
+                if should_log:
+                    wandb.log(
+                        {
+                            f"Test/{criterion_ueff.name}": val_si.get_value(),
+                            f"Test/CrossEntropyLoss": val_ce.get_value(),
+                        },
+                        step=step,
+                    )
+
+                    wandb.log(
+                        {f"Metrics/{k}": v for k, v in metrics.items()}, step=step
+                    )
+                    wandb.log({f"Metrics/mIoU": miou}, step=step)
+
+                    model_io.save_checkpoint(
+                        model,
+                        optimizer,
+                        epoch,
+                        f"{experiment_name}_{run_id}_latest.pt",
+                        root=os.path.join(root, "checkpoints"),
+                    )
+
+                if metrics["abs_rel"] < best_loss and should_write:
+                    model_io.save_checkpoint(
+                        model,
+                        optimizer,
+                        epoch,
+                        f"{experiment_name}_{run_id}_best.pt",
+                        root=os.path.join(root, "checkpoints"),
+                    )
+                    best_loss = metrics["abs_rel"]
+                model.train()
+                #################################################################################################
 
     ################################# DELETE ##################################################
     print("number of gpus")
     print(args.ngpus_per_node)
-    # model.eval()
-    # metrics, val_si, miou, val_ce = validate(
-    #     args, model, test_loader, criterion_ueff, 0, epochs, seg_criterion, device,
-    # )
-
-    # # print("Validated: {}".format(metrics))
-    # if should_log:
-    #     wandb.log(
-    #         {
-    #             f"Test/{criterion_ueff.name}": val_si.get_value(),
-    #             f"Test/CrossEntropyLoss": val_ce.get_value(),
-    #             # f"Test/{criterion_bins.name}": val_bins.get_value()
-    #         },
-    #         step=step,
-    #     )
-
-    #     wandb.log({f"Metrics/{k}": v for k, v in metrics.items()}, step=step)
-    #     wandb.log({f"Metrics/mIoU": miou}, step=step)
-
-    #     model_io.save_checkpoint(
-    #         model,
-    #         optimizer,
-    #         0,
-    #         f"{experiment_name}_{run_id}_latest.pt",
-    #         root=os.path.join(root, "checkpoints"),
-    #     )
-
-    # if metrics["abs_rel"] < best_loss and should_write:
-    #     model_io.save_checkpoint(
-    #         model,
-    #         optimizer,
-    #         0,
-    #         f"{experiment_name}_{run_id}_best.pt",
-    #         root=os.path.join(root, "checkpoints"),
-    #     )
-    #     best_loss = metrics["abs_rel"]
-    # model.train()
     #################################################################################################
-    # max_iter = len(train_loader) * epochs
+
+    if isinstance(model, torch.nn.DataParallel) or isinstance(
+        model, torch.nn.parallel.DistributedDataParallel
+    ):
+        model.module.freeze_seg()
+    else:
+        model.freeze_seg()
+
+    if args.same_lr:
+        print("Using same LR")
+        params = model.parameters()
+    else:
+
+        print("Using diff LR")
+        m = model.module if args.multigpu else model
+        params = [
+            {"params": m.get_1x_lr_params(), "lr": lr / 10},
+            {"params": m.get_10x_lr_params(), "lr": lr},
+        ]
+
+    optimizer = optim.AdamW(params, weight_decay=args.wd, lr=args.lr)
+
+    ################################################################################################
+    # some globals
+    iters = len(train_loader)
+    step = args.epoch * iters
+    best_loss = np.inf
+
+    ###################################### Scheduler ###############################################
+    steps_per_epoch = len(train_loader)
+    scheduler = optim.lr_scheduler.OneCycleLR(
+        optimizer,
+        lr,
+        epochs=epochs,
+        steps_per_epoch=steps_per_epoch,
+        cycle_momentum=True,
+        base_momentum=0.85,
+        max_momentum=0.95,
+        last_epoch=args.last_epoch,
+        div_factor=args.div_factor,
+        final_div_factor=args.final_div_factor,
+    )
+    if args.resume != "" and scheduler is not None:
+        scheduler.step(args.epoch + 1)
+
+    ################################################################################################
+    print("START TRAINING")
     for epoch in range(args.epoch, epochs):
 
         ################################# Train loop ##########################################################
         if should_log:
             wandb.log({"Epoch": epoch}, step=step)
-        train_loader_it = iter(train_loader)
-        train_loader_is_done = False
-        train_seg_loader_it = iter(train_seg_loader)
-        train_seg_loader_is_done = False
 
-        for i in (
+        for batch in (
             tqdm(
-                range(steps_per_epoch),
+                train_loader,
                 desc=f"Epoch: {epoch + 1}/{epochs}. Loop: Train",
                 total=steps_per_epoch,
             )
             if is_rank_zero(args)
-            else range(steps_per_epoch)
+            else train_loader
         ):
-
-            #################### random select a loader ########################
-            has_seg = False
-            if train_loader_is_done or (
-                train_seg_loader_is_done == False and random.random() < 0.05
-            ):
-                batch = next(train_seg_loader_it, None)
-                if batch is not None:
-                    has_seg = True
-                else:
-                    train_seg_loader_is_done = True
-                    batch = next(train_loader_it, None)
-                    if batch is None:
-                        train_loader_is_done = True
-            else:
-                batch = next(train_loader_it, None)
-                if batch is None:
-                    train_loader_is_done = True
-                    batch = next(train_seg_loader_it, None)
-                    if batch is not None:
-                        has_seg = True
-                    else:
-                        train_seg_loader_is_done = True
-
-            if train_loader_is_done and train_seg_loader_is_done:
-                break
-            ###########################################################
-            if has_seg:
-                if isinstance(model, torch.nn.DataParallel) or isinstance(
-                    model, torch.nn.parallel.DistributedDataParallel
-                ):
-                    model.module.unfreeze_seg()
-                else:
-                    model.unfreeze_seg()
-            else:
-
-                if isinstance(model, torch.nn.DataParallel) or isinstance(
-                    model, torch.nn.parallel.DistributedDataParallel
-                ):
-                    model.module.freeze_seg()
-                else:
-                    model.freeze_seg()
 
             optimizer.zero_grad()
 
@@ -349,15 +416,6 @@ def train(
                 l_chamfer = torch.Tensor([0]).to(img.device)
 
             loss = l_dense + args.w_chamfer * l_chamfer
-            seg_loss = 0
-            if has_seg:
-                seg = batch["seg"].to(torch.long).to(device)
-                seg = seg.squeeze()
-                seg_out = nn.functional.interpolate(
-                    seg_out, seg.shape[-2:], mode="nearest"
-                )
-                seg_loss = seg_criterion(seg_out, seg)
-                loss += args.w_seg * seg_loss
 
             loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), 0.1)  # optional
@@ -365,8 +423,6 @@ def train(
             if should_log and step % 5 == 0:
                 wandb.log({f"Train/{criterion_ueff.name}": l_dense.item()}, step=step)
                 wandb.log({f"Train/{criterion_bins.name}": l_chamfer.item()}, step=step)
-            if should_log and has_seg:
-                wandb.log({f"Train/CrossEntropyLoss": l_chamfer.item()}, step=step)
 
             step += 1
             scheduler.step()
