@@ -465,7 +465,7 @@ def validate(
             val_si.append(l_dense.item())
 
             pred = nn.functional.interpolate(
-                pred, depth.shape[-2:], mode="bilinear", align_corners=True
+                pred, depth.shape[-2:], mode="nearest", align_corners=True
             )
 
             pred = pred.squeeze().cpu().numpy()
@@ -502,7 +502,7 @@ def validate(
             seg = batch["seg"].to(torch.long).to(device)
             seg = seg.squeeze().unsqueeze(0)
 
-            seg_out = nn.functional.interpolate(seg_out, seg.shape[-2:], mode="nearest")
+            seg_out = nn.functional.interpolate(seg_out, seg.shape[-2:], mode="bilinear")
             seg_loss = seg_criterion(seg_out, seg)
             val_ce.append(seg_loss)
 
