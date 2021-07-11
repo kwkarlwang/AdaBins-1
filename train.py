@@ -354,7 +354,7 @@ def train(
                 seg = batch["seg"].to(torch.long).to(device)
                 seg = seg.squeeze()
                 seg_out = nn.functional.interpolate(
-                    seg_out, seg.shape[-2:], mode="nearest"
+                    seg_out, seg.shape[-2:], mode="bilinear"
                 )
                 seg_loss = seg_criterion(seg_out, seg)
                 loss += args.w_seg * seg_loss
