@@ -336,6 +336,8 @@ def train(
             if "has_valid_depth" in batch:
                 if not batch["has_valid_depth"]:
                     continue
+            print('img type is:', type(img))
+            print('img shape is:', list(img.shape))
             bin_edges, pred, seg_out = model(img)
 
             mask = depth > args.min_depth
