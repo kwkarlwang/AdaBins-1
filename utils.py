@@ -23,7 +23,7 @@ class RunningAverage:
         return self.avg
 
 
-def denormalize(x, device='cpu'):
+def denormalize(x, device="cpu"):
     mean = torch.Tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1).to(device)
     std = torch.Tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1).to(device)
     return x * std + mean
@@ -46,7 +46,7 @@ class RunningAverageDict:
         return {key: value.get_value() for key, value in self._dict.items()}
 
 
-def colorize(value, vmin=10, vmax=1000, cmap='magma_r'):
+def colorize(value, vmin=10, vmax=1000, cmap="magma_r"):
     value = value.cpu().numpy()[0, :, :]
     invalid_mask = value == -1
 
@@ -57,7 +57,7 @@ def colorize(value, vmin=10, vmax=1000, cmap='magma_r'):
         value = (value - vmin) / (vmax - vmin)  # vmin..vmax
     else:
         # Avoid 0-division
-        value = value * 0.
+        value = value * 0.0
     # squeeze last dim if it exists
     # value = value.squeeze(axis=0)
     cmapper = matplotlib.cm.get_cmap(cmap)
@@ -92,13 +92,160 @@ def compute_errors(gt, pred):
     silog = np.sqrt(np.mean(err ** 2) - np.mean(err) ** 2) * 100
 
     log_10 = (np.abs(np.log10(gt) - np.log10(pred))).mean()
-    return dict(a1=a1, a2=a2, a3=a3, abs_rel=abs_rel, rmse=rmse, log_10=log_10, rmse_log=rmse_log,
-                silog=silog, sq_rel=sq_rel)
+    return dict(
+        a1=a1,
+        a2=a2,
+        a3=a3,
+        abs_rel=abs_rel,
+        rmse=rmse,
+        log_10=log_10,
+        rmse_log=rmse_log,
+        silog=silog,
+        sq_rel=sq_rel,
+    )
 
+
+class IoU:
+    def __init__(
+        self, num_classes: int, ignore_index: int = None, device="cpu"
+    ) -> None:
+        self.ignore_index = ignore_index
+        self.num_classes = num_classes
+        self.intersections = torch.zeros(num_classes).to(device)
+        self.unions = torch.zeros(num_classes).to(device)
+
+    def update(self, target, pred):
+        # pred:   N, H, W
+        # target: N, H, W
+
+        # print(pred)
+        # print(pred.max())
+        # print(pred.min())
+        # print(pred.shape)
+        for i in range(self.num_classes):
+            if i == self.ignore_index:
+                continue
+            # print(i)
+            predMask = pred == i
+            # print(predMask.sum())
+            targetMask = target == i
+            # print(targetMask.sum())
+            intersection = (predMask & targetMask).sum()
+            # print(intersection)
+            # print(intersection.float())
+            union = (predMask | targetMask).sum()
+            self.intersections[i] += intersection.float()
+            self.unions[i] += union.float()
+
+    def compute(self):
+        mask = self.unions != 0
+        res = (self.intersections[mask] / self.unions[mask]).mean()
+        return res.cpu().item()
+
+
+#####################################################################################################
+# https://github.com/VainF/DeepLabV3Plus-Pytorch/blob/master/metrics/stream_metrics.py
+
+
+class _StreamMetrics(object):
+    def __init__(self):
+        """ Overridden by subclasses """
+        raise NotImplementedError()
+
+    def update(self, gt, pred):
+        """ Overridden by subclasses """
+        raise NotImplementedError()
+
+    def get_results(self):
+        """ Overridden by subclasses """
+        raise NotImplementedError()
+
+    def to_str(self, metrics):
+        """ Overridden by subclasses """
+        raise NotImplementedError()
+
+    def reset(self):
+        """ Overridden by subclasses """
+        raise NotImplementedError()
+
+
+class StreamSegMetrics(_StreamMetrics):
+    """
+    Stream Metrics for Semantic Segmentation Task
+    """
+
+    def __init__(self, num_classes):
+        self.num_classes = num_classes
+        self.confusion_matrix = np.zeros((num_classes, num_classes))
+
+    def update(self, label_trues, label_preds):
+        for lt, lp in zip(label_trues, label_preds):
+            self.confusion_matrix += self._fast_hist(lt.flatten(), lp.flatten())
+
+    def compute(self):
+        hist = self.confusion_matrix
+        iu = np.diag(hist) / (hist.sum(axis=1) + hist.sum(axis=0) - np.diag(hist))
+        mean_iu = np.nanmean(iu)
+        # freq = hist.sum(axis=1) / hist.sum()
+        # fwavacc = (freq[freq > 0] * iu[freq > 0]).sum()
+        # cls_iu = dict(zip(range(self.n_classes), iu))
+
+        return mean_iu
+
+    @staticmethod
+    def to_str(results):
+        string = "\n"
+        for k, v in results.items():
+            if k != "Class IoU":
+                string += "%s: %f\n" % (k, v)
+
+        # string+='Class IoU:\n'
+        # for k, v in results['Class IoU'].items():
+        #    string += "\tclass %d: %f\n"%(k, v)
+        return string
+
+    def _fast_hist(self, label_true, label_pred):
+        mask = (label_true > 0) & (label_true < self.num_classes)
+        hist = np.bincount(
+            self.num_classes * label_true[mask].astype(int) + label_pred[mask],
+            minlength=self.num_classes ** 2,
+        ).reshape(self.num_classes, self.num_classes)
+        return hist
+
+    def get_results(self):
+        """Returns accuracy score evaluation result.
+            - overall accuracy
+            - mean accuracy
+            - mean IU
+            - fwavacc
+        """
+        hist = self.confusion_matrix
+        acc = np.diag(hist).sum() / hist.sum()
+        acc_cls = np.diag(hist) / hist.sum(axis=1)
+        acc_cls = np.nanmean(acc_cls)
+        iu = np.diag(hist) / (hist.sum(axis=1) + hist.sum(axis=0) - np.diag(hist))
+        mean_iu = np.nanmean(iu)
+        freq = hist.sum(axis=1) / hist.sum()
+        fwavacc = (freq[freq > 0] * iu[freq > 0]).sum()
+        cls_iu = dict(zip(range(self.num_classes), iu))
+
+        return {
+            "Overall Acc": acc,
+            "Mean Acc": acc_cls,
+            "FreqW Acc": fwavacc,
+            "Mean IoU": mean_iu,
+            "Class IoU": cls_iu,
+        }
+
+    def reset(self):
+        self.confusion_matrix = np.zeros((self.num_classes, self.num_classes))
+
+
+#####################################################################################################
 
 ##################################### Demo Utilities ############################################
 def b64_to_pil(b64string):
-    image_data = re.sub('^data:image/.+;base64,', '', b64string)
+    image_data = re.sub("^data:image/.+;base64,", "", b64string)
     # image = Image.open(cStringIO.StringIO(image_data))
     return Image.open(BytesIO(base64.b64decode(image_data)))
 
@@ -113,7 +260,7 @@ def edges(d):
     return np.abs(dx) + np.abs(dy)
 
 
-class PointCloudHelper():
+class PointCloudHelper:
     def __init__(self, width=640, height=480):
         self.xx, self.yy = self.worldCoords(width, height)
 
@@ -137,4 +284,16 @@ class PointCloudHelper():
 
         return np.dstack((self.xx * z, self.yy * z, z)).reshape((length, 3))
 
+
 #####################################################################################################
+
+if __name__ == "__main__":
+    iou = IoU(4, 0)
+    pred = torch.Tensor([[[5, 2], [3, 4]], [[5, 6], [7, 8]]])
+    #%%
+    pred
+    #%%
+    target = torch.Tensor([[[5, 1], [3, 3]], [[5, 5], [5, 5]]])
+    #%%
+    iou.update(pred, target)
+    print(iou.compute())
