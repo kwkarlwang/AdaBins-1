@@ -172,7 +172,6 @@ def train(
         )
         # wandb.watch(model)
     ################################################################################################
-    args.batch_size = args.batch_size * args.ngpus_per_node
     test_loader = DepthDataLoader(args, "online_eval_seg").data
     train_loader = DepthDataLoader(args, "train").data
     train_seg_loader = DepthDataLoader(args, "train_seg").data
@@ -336,8 +335,7 @@ def train(
             if "has_valid_depth" in batch:
                 if not batch["has_valid_depth"]:
                     continue
-            print('img type is:', type(img))
-            print('img shape is:', list(img.shape))
+                    
             bin_edges, pred, seg_out = model(img)
 
             mask = depth > args.min_depth
