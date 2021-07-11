@@ -78,7 +78,7 @@ class DecoderBN(nn.Module):
         self.classifier = DeepLabHead(in_channels = bottleneck_features, num_classes = seg_classes)
     
 
-    def forward(self, features, input_shape):
+    def forward(self, features):
         x_block0, x_block1, x_block2, x_block3, x_block4 = features[4], features[5], features[6], features[8], features[
             11]
 
@@ -97,8 +97,9 @@ class DecoderBN(nn.Module):
         #     return out, [x_block0, x_block1, x_block2, x_block3, x_block4, x_d1, x_d2, x_d3, x_d4]
         
         x_d0_seg = self.conv2_seg(x_block4)
-        x_seg = self.classifier(x_d0_seg)
-        out_seg = F.interpolate(x_seg, size=input_shape, mode='bilinear', align_corners=False)
+#         x_seg = self.classifier(x_d0_seg)
+#         out_seg = F.interpolate(x_seg, size=input_shape, mode='bilinear', align_corners=False)
+        out_seg = self.classifier(x_d0_seg)
         
         return out, out_seg
 
@@ -207,8 +208,8 @@ class UnetAdaptiveBins(nn.Module):
             nn.Softmax(dim=1),
         )
 
-    def forward(self, x, **kwargs):
-        unet_out, seg_out = self.decoder(self.encoder(x), input_shape = x.shape[-2:], **kwargs)
+    def forward(self, x):
+        unet_out, seg_out = self.decoder(self.encoder(x))
         bin_widths_normed, range_attention_maps = self.adaptive_bins_layer(unet_out)
         out = self.conv_out(range_attention_maps)
 
@@ -231,6 +232,7 @@ class UnetAdaptiveBins(nn.Module):
         pred = torch.sum(out * centers, dim=1, keepdim=True)
 
         return bin_edges, pred, seg_out
+    
     def freeze_seg(self):
         d = self.decoder
         freeze_list = [
