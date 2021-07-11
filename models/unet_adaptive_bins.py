@@ -98,7 +98,7 @@ class DecoderBN(nn.Module):
         
         x_d0_seg = self.conv2_seg(x_block4)
         x_seg = self.classifier(x_d0_seg)
-        out_seg = F.interpolate(x, size=input_shape, mode='bilinear', align_corners=False)
+        out_seg = F.interpolate(x_seg, size=input_shape, mode='bilinear', align_corners=False)
         
         return out, out_seg
 
