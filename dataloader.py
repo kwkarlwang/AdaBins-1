@@ -43,6 +43,7 @@ class DepthDataLoader(object):
                 num_workers=args.num_threads,
                 pin_memory=True,
                 sampler=self.train_sampler,
+                drop_last=True
             )
 
         elif mode == "online_eval" or mode == "online_eval_seg":
