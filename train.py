@@ -172,9 +172,9 @@ def train(
         )
         # wandb.watch(model)
     ################################################################################################
-    test_loader = DepthDataLoader(args, "online_eval_seg").data
-    train_loader = DepthDataLoader(args, "train").data
-    train_seg_loader = DepthDataLoader(args, "train_seg").data
+    test_loader = DepthDataLoader(args, "online_eval_seg", drop_last=True).data
+    train_loader = DepthDataLoader(args, "train", drop_last=True).data
+    train_seg_loader = DepthDataLoader(args, "train_seg", drop_last=True).data
 
     ###################################### losses ##############################################
     criterion_ueff = SILogLoss()
