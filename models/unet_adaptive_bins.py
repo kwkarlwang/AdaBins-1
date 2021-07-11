@@ -75,7 +75,7 @@ class DecoderBN(nn.Module):
         # self.act_out = nn.Softmax(dim=1) if output_activation == 'softmax' else nn.Identity()
         
         # DeepLab v3 segmentation head
-        self.classifer = DeepLabHead(in_channels = bottleneck_features, num_classes = seg_classes)
+        self.classifier = DeepLabHead(in_channels = bottleneck_features, num_classes = seg_classes)
     
 
     def forward(self, features, input_shape):
