@@ -172,7 +172,7 @@ def train(
         )
         # wandb.watch(model)
     ################################################################################################
-
+    args.batch_size = args.batch_size * args.ngpus_per_node
     test_loader = DepthDataLoader(args, "online_eval_seg").data
     train_loader = DepthDataLoader(args, "train").data
     train_seg_loader = DepthDataLoader(args, "train_seg").data
