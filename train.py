@@ -232,7 +232,7 @@ def train(
         scheduler.step(args.epoch + 1)
     ################################################################################################
     print("START PRE TRAINING")
-    for epoch in range(args.epoch, epochs):
+    for epoch in range(args.epoch, epochs * 2):
 
         ################################# Train loop ##########################################################
         for batch in tqdm(train_seg_loader):
@@ -261,73 +261,18 @@ def train(
 
             seg = batch["seg"].to(torch.long).to(device)
             seg = seg.squeeze()
-            seg_out = nn.functional.interpolate(seg_out, seg.shape[-2:], mode="nearest")
+            seg_out = nn.functional.interpolate(
+                seg_out, seg.shape[-2:], mode="bilinear"
+            )
             seg_loss = seg_criterion(seg_out, seg)
             loss += args.w_seg * seg_loss
 
             loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), 0.1)  # optional
             optimizer.step()
-            if should_log and step % 5 == 0:
-                wandb.log(
-                    {f"PreTrain/{criterion_ueff.name}": l_dense.item()}, step=step
-                )
-                wandb.log(
-                    {f"PreTrain/{criterion_bins.name}": l_chamfer.item()}, step=step
-                )
-                wandb.log({f"PreTrain/CrossEntropyLoss": l_chamfer.item()}, step=step)
 
             step += 1
             scheduler.step()
-
-            if should_write and step % args.validate_every == 0:
-
-                ################################# Validation loop ##################################################
-                model.eval()
-                metrics, val_si, miou, val_ce = validate(
-                    args,
-                    model,
-                    test_loader,
-                    criterion_ueff,
-                    epoch,
-                    epochs,
-                    seg_criterion,
-                    device,
-                )
-
-                if should_log:
-                    wandb.log(
-                        {
-                            f"Test/{criterion_ueff.name}": val_si.get_value(),
-                            f"Test/CrossEntropyLoss": val_ce.get_value(),
-                        },
-                        step=step,
-                    )
-
-                    wandb.log(
-                        {f"Metrics/{k}": v for k, v in metrics.items()}, step=step
-                    )
-                    wandb.log({f"Metrics/mIoU": miou}, step=step)
-
-                    model_io.save_checkpoint(
-                        model,
-                        optimizer,
-                        epoch,
-                        f"{experiment_name}_{run_id}_latest.pt",
-                        root=os.path.join(root, "checkpoints"),
-                    )
-
-                if metrics["abs_rel"] < best_loss and should_write:
-                    model_io.save_checkpoint(
-                        model,
-                        optimizer,
-                        epoch,
-                        f"{experiment_name}_{run_id}_best.pt",
-                        root=os.path.join(root, "checkpoints"),
-                    )
-                    best_loss = metrics["abs_rel"]
-                model.train()
-                #################################################################################################
 
     ################################# DELETE ##################################################
     print("number of gpus")
@@ -558,7 +503,9 @@ def validate(
             seg = batch["seg"].to(torch.long).to(device)
             seg = seg.squeeze().unsqueeze(0)
 
-            seg_out = nn.functional.interpolate(seg_out, seg.shape[-2:], mode="nearest")
+            seg_out = nn.functional.interpolate(
+                seg_out, seg.shape[-2:], mode="bilinear"
+            )
             seg_loss = seg_criterion(seg_out, seg)
             val_ce.append(seg_loss)
 

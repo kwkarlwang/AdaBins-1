@@ -68,43 +68,43 @@ class DecoderBN(nn.Module):
             skip_input=features // 1 + 112 + 64, output_features=features // 2
         )
         self.depth_up2 = UpSampleBN(
-            skip_input=features // 2 + 40 + 24 + 128, output_features=features // 4
+            skip_input=features // 2 + 40 + 24 + 512, output_features=features // 4
         )
         self.depth_up3 = UpSampleBN(
-            skip_input=features // 4 + 24 + 16 + 64, output_features=features // 8
+            skip_input=features // 4 + 24 + 16 + 256, output_features=features // 8
         )
         self.depth_up4 = UpSampleBN(
-            skip_input=features // 8 + 16 + 8 + 64, output_features=features // 16
+            skip_input=features // 8 + 16 + 8 + 128, output_features=features // 16
         )
         self.depth_conv3 = nn.Conv2d(
             features // 16 + 64, num_classes, kernel_size=3, stride=1, padding=1
         )
 
-        self.depth_to_seg_up1 = ConvBN(features // 2, 128)
-        self.depth_to_seg_up2 = ConvBN(features // 4, 64)
-        self.depth_to_seg_up3 = ConvBN(features // 8, 64)
+        self.depth_to_seg_up1 = ConvBN(features // 2, 512)
+        self.depth_to_seg_up2 = ConvBN(features // 4, 256)
+        self.depth_to_seg_up3 = ConvBN(features // 8, 128)
         self.depth_to_seg_up4 = ConvBN(features // 16, 64)
 
         self.seg_up1 = UpSampleBN(
             skip_input=features // 1 + 112 + 64, output_features=features // 2
         )
         self.seg_up2 = UpSampleBN(
-            skip_input=features // 2 + 40 + 24 + 128, output_features=features // 4
+            skip_input=features // 2 + 40 + 24 + 512, output_features=features // 4
         )
         self.seg_up3 = UpSampleBN(
-            skip_input=features // 4 + 24 + 16 + 64, output_features=features // 8
+            skip_input=features // 4 + 24 + 16 + 256, output_features=features // 8
         )
         self.seg_up4 = UpSampleBN(
-            skip_input=features // 8 + 16 + 8 + 64, output_features=features // 16
+            skip_input=features // 8 + 16 + 8 + 128, output_features=features // 16
         )
 
         self.seg_conv3 = nn.Conv2d(
             features // 16 + 64, seg_classes, kernel_size=3, stride=1, padding=1
         )
 
-        self.seg_to_depth_up1 = ConvBN(features // 2, 128)
-        self.seg_to_depth_up2 = ConvBN(features // 4, 64)
-        self.seg_to_depth_up3 = ConvBN(features // 8, 64)
+        self.seg_to_depth_up1 = ConvBN(features // 2, 512)
+        self.seg_to_depth_up2 = ConvBN(features // 4, 256)
+        self.seg_to_depth_up3 = ConvBN(features // 8, 128)
         self.seg_to_depth_up4 = ConvBN(features // 16, 64)
 
     def forward(self, features):
