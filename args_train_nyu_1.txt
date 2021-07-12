@@ -1,10 +1,10 @@
---bs 12
+--bs 8
 --dataset nyu
 --lr 0.000357
 --wd 0.1
 --div_factor 25
 --final_div_factor 100
---epochs 25
+--epochs 30
 --workers 11
 --name UnetAdaptiveBins
 --n_bins 256
