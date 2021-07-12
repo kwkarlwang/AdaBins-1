@@ -465,7 +465,7 @@ def validate(
             val_si.append(l_dense.item())
 
             pred = nn.functional.interpolate(
-                pred, depth.shape[-2:], mode="nearest", align_corners=True
+                pred, depth.shape[-2:], mode="bilinear", align_corners=True
             )
 
             pred = pred.squeeze().cpu().numpy()
