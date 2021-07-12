@@ -233,6 +233,7 @@ def train(
     ################################################################################################
     print("START PRE TRAINING")
     for epoch in range(args.epoch, epochs * 2):
+        print(f"EPOCH: {epoch}")
 
         ################################# Train loop ##########################################################
         for batch in tqdm(train_seg_loader):
