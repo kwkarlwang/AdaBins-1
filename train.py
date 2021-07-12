@@ -219,7 +219,7 @@ def train(
     scheduler = optim.lr_scheduler.OneCycleLR(
         optimizer,
         lr,
-        epochs=epochs,
+        epochs=epochs * 2,
         steps_per_epoch=steps_per_epoch,
         cycle_momentum=True,
         base_momentum=0.85,
