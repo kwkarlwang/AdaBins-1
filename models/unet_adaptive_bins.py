@@ -31,56 +31,50 @@ class UpSampleBN(nn.Module):
         return self._net(f)
 
 
-class ConvBN(nn.Module):
-    def __init__(self, skip_input, output_features):
-        super(UpSampleBN, self).__init__()
-
-        self._net = nn.Sequential(
-            nn.Conv2d(skip_input, output_features, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(output_features),
-            nn.LeakyReLU(),
-            nn.Conv2d(
-                output_features, output_features, kernel_size=3, stride=1, padding=1
-            ),
-            nn.BatchNorm2d(output_features),
-            nn.LeakyReLU(),
-        )
-
-    def forward(self, x, concat_with):
-        up_x = F.interpolate(
-            x,
-            size=[concat_with.size(2), concat_with.size(3)],
-            mode="bilinear",
-            align_corners=True,
-        )
-        f = torch.cat([up_x, concat_with], dim=1)
-        return self._net(f)
-
-
 class DecoderBN(nn.Module):
-    def __init__(self, num_features=2048, num_classes=1, bottleneck_features=2048, seg_classes=41):
+    def __init__(
+        self, num_features=2048, num_classes=1, bottleneck_features=2048, seg_classes=41
+    ):
         super(DecoderBN, self).__init__()
         features = int(num_features)
 
-        self.conv2 = nn.Conv2d(bottleneck_features, features, kernel_size=1, stride=1, padding=1)
-        self.conv2_seg = nn.Conv2d(bottleneck_features, features, kernel_size=1, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(
+            bottleneck_features, features, kernel_size=1, stride=1, padding=1
+        )
+        self.conv2_seg = nn.Conv2d(
+            bottleneck_features, features, kernel_size=1, stride=1, padding=1
+        )
 
-        self.up1 = UpSampleBN(skip_input=features // 1 + 112 + 64, output_features=features // 2)
-        self.up2 = UpSampleBN(skip_input=features // 2 + 40 + 24, output_features=features // 4)
-        self.up3 = UpSampleBN(skip_input=features // 4 + 24 + 16, output_features=features // 8)
-        self.up4 = UpSampleBN(skip_input=features // 8 + 16 + 8, output_features=features // 16)
+        self.up1 = UpSampleBN(
+            skip_input=features // 1 + 112 + 64, output_features=features // 2
+        )
+        self.up2 = UpSampleBN(
+            skip_input=features // 2 + 40 + 24, output_features=features // 4
+        )
+        self.up3 = UpSampleBN(
+            skip_input=features // 4 + 24 + 16, output_features=features // 8
+        )
+        self.up4 = UpSampleBN(
+            skip_input=features // 8 + 16 + 8, output_features=features // 16
+        )
 
         #         self.up5 = UpSample(skip_input=features // 16 + 3, output_features=features//16)
-        self.conv3 = nn.Conv2d(features // 16, num_classes, kernel_size=3, stride=1, padding=1)
+        self.conv3 = nn.Conv2d(
+            features // 16, num_classes, kernel_size=3, stride=1, padding=1
+        )
         # self.act_out = nn.Softmax(dim=1) if output_activation == 'softmax' else nn.Identity()
-        
+
         # DeepLab v3 segmentation head
-        self.classifier = DeepLabHead(in_channels = bottleneck_features, num_classes = seg_classes)
-    
+        self.classifier = DeepLabHead(in_channels=features, num_classes=seg_classes)
 
     def forward(self, features):
-        x_block0, x_block1, x_block2, x_block3, x_block4 = features[4], features[5], features[6], features[8], features[
-            11]
+        x_block0, x_block1, x_block2, x_block3, x_block4 = (
+            features[4],
+            features[5],
+            features[6],
+            features[8],
+            features[11],
+        )
 
         x_d0 = self.conv2(x_block4)
 
@@ -95,12 +89,12 @@ class DecoderBN(nn.Module):
         #     return out, features[-1]
         # elif with_intermediate:
         #     return out, [x_block0, x_block1, x_block2, x_block3, x_block4, x_d1, x_d2, x_d3, x_d4]
-        
+
         x_d0_seg = self.conv2_seg(x_block4)
-#         x_seg = self.classifier(x_d0_seg)
-#         out_seg = F.interpolate(x_seg, size=input_shape, mode='bilinear', align_corners=False)
+        #         x_seg = self.classifier(x_d0_seg)
+        #         out_seg = F.interpolate(x_seg, size=input_shape, mode='bilinear', align_corners=False)
         out_seg = self.classifier(x_d0_seg)
-        
+
         return out, out_seg
 
 
@@ -111,16 +105,23 @@ class DeepLabHead(nn.Sequential):
             nn.Conv2d(256, 256, 3, padding=1, bias=False),
             nn.BatchNorm2d(256),
             nn.ReLU(),
-            nn.Conv2d(256, num_classes, 1)
+            nn.Conv2d(256, num_classes, 1),
         )
 
 
 class ASPPConv(nn.Sequential):
     def __init__(self, in_channels, out_channels, dilation):
         modules = [
-            nn.Conv2d(in_channels, out_channels, 3, padding=dilation, dilation=dilation, bias=False),
+            nn.Conv2d(
+                in_channels,
+                out_channels,
+                3,
+                padding=dilation,
+                dilation=dilation,
+                bias=False,
+            ),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU()
+            nn.ReLU(),
         ]
         super(ASPPConv, self).__init__(*modules)
 
@@ -128,26 +129,30 @@ class ASPPConv(nn.Sequential):
 class ASPPPooling(nn.Sequential):
     def __init__(self, in_channels, out_channels):
         super(ASPPPooling, self).__init__(
-            nn.AvgPool2d(1), # nn.AdaptiveAvgPool2d(1)
+            nn.AvgPool2d(1),  # nn.AdaptiveAvgPool2d(1)
             nn.Conv2d(in_channels, out_channels, 1, bias=False),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU())
+            nn.ReLU(),
+        )
 
     def forward(self, x):
         size = x.shape[-2:]
         for mod in self:
             x = mod(x)
-        return F.interpolate(x, size=size, mode='bilinear', align_corners=False)
+        return F.interpolate(x, size=size, mode="bilinear", align_corners=False)
 
 
 class ASPP(nn.Module):
     def __init__(self, in_channels, atrous_rates, out_channels=256):
         super(ASPP, self).__init__()
         modules = []
-        modules.append(nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, 1, bias=False),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU()))
+        modules.append(
+            nn.Sequential(
+                nn.Conv2d(in_channels, out_channels, 1, bias=False),
+                nn.BatchNorm2d(out_channels),
+                nn.ReLU(),
+            )
+        )
 
         rates = tuple(atrous_rates)
         for rate in rates:
@@ -161,14 +166,16 @@ class ASPP(nn.Module):
             nn.Conv2d(len(self.convs) * out_channels, out_channels, 1, bias=False),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(),
-            nn.Dropout(0.5))
+            nn.Dropout(0.5),
+        )
 
     def forward(self, x):
         res = []
         for conv in self.convs:
             res.append(conv(x))
         res = torch.cat(res, dim=1)
-        return self.project(res)    
+        return self.project(res)
+
 
 class Encoder(nn.Module):
     def __init__(self, backend):
@@ -187,7 +194,15 @@ class Encoder(nn.Module):
 
 
 class UnetAdaptiveBins(nn.Module):
-    def __init__(self, backend, n_bins=100, min_val=0.1, max_val=10, norm="linear", seg_classes=41):
+    def __init__(
+        self,
+        backend,
+        n_bins=100,
+        min_val=0.1,
+        max_val=10,
+        norm="linear",
+        seg_classes=41,
+    ):
         super(UnetAdaptiveBins, self).__init__()
         self.num_classes = n_bins
         self.min_val = min_val
@@ -232,23 +247,17 @@ class UnetAdaptiveBins(nn.Module):
         pred = torch.sum(out * centers, dim=1, keepdim=True)
 
         return bin_edges, pred, seg_out
-    
+
     def freeze_seg(self):
         d = self.decoder
-        freeze_list = [
-            d.conv2_seg,
-            d.classifier
-        ]
+        freeze_list = [d.conv2_seg, d.classifier]
         for m in freeze_list:
             for p in m.parameters():
                 p.requires_grad = False
 
     def unfreeze_seg(self):
         d = self.decoder
-        freeze_list = [
-            d.conv2_seg,
-            d.classifier
-        ]
+        freeze_list = [d.conv2_seg, d.classifier]
         for m in freeze_list:
             for p in m.parameters():
                 p.requires_grad = True
