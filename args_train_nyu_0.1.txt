@@ -4,9 +4,9 @@
 --wd 0.1
 --div_factor 25
 --final_div_factor 100
---epochs 25
+--epochs 35
 --workers 11
---name UnetAdaptiveBins_w_seg_0.1
+--name UnetAdaptiveBins_w_seg_0.1_epoch_35
 --n_bins 256
 --norm linear
 --w_chamfer 0.1
