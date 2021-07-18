@@ -42,7 +42,7 @@ class DecoderBN(nn.Module):
             bottleneck_features, features, kernel_size=1, stride=1, padding=1
         )
         self.conv2_seg = nn.Conv2d(
-            bottleneck_features, features, kernel_size=1, stride=1, padding=1
+            features // 8, features // 8, kernel_size=1, stride=1, padding=1
         )
 
         self.up1 = UpSampleBN(
@@ -65,7 +65,7 @@ class DecoderBN(nn.Module):
         # self.act_out = nn.Softmax(dim=1) if output_activation == 'softmax' else nn.Identity()
 
         # DeepLab v3 segmentation head
-        self.classifier = DeepLabHead(in_channels=features, num_classes=seg_classes)
+        self.classifier = DeepLabHead(in_channels=features // 8, num_classes=seg_classes)
 
     def forward(self, features):
         x_block0, x_block1, x_block2, x_block3, x_block4 = (
@@ -75,7 +75,6 @@ class DecoderBN(nn.Module):
             features[8],
             features[11],
         )
-
         x_d0 = self.conv2(x_block4)
 
         x_d1 = self.up1(x_d0, x_block3)
@@ -84,16 +83,17 @@ class DecoderBN(nn.Module):
         x_d4 = self.up4(x_d3, x_block0)
         #         x_d5 = self.up5(x_d4, features[0])
         out = self.conv3(x_d4)
+
         # out = self.act_out(out)
         # if with_features:
         #     return out, features[-1]
         # elif with_intermediate:
         #     return out, [x_block0, x_block1, x_block2, x_block3, x_block4, x_d1, x_d2, x_d3, x_d4]
 
-        x_d0_seg = self.conv2_seg(x_block4)
+        x_d3_seg = self.conv2_seg(x_d3)
         #         x_seg = self.classifier(x_d0_seg)
         #         out_seg = F.interpolate(x_seg, size=input_shape, mode='bilinear', align_corners=False)
-        out_seg = self.classifier(x_d0_seg)
+        out_seg = self.classifier(x_d3_seg)
 
         return out, out_seg
 
@@ -275,7 +275,7 @@ class UnetAdaptiveBins(nn.Module):
         basemodel_name = "tf_efficientnet_b5_ap"
 
         print("Loading base model ()...".format(basemodel_name), end="")
-        basemodel = torch.hub.load(
+        basemodel = torch.hub.load( #type: ignore
             "rwightman/gen-efficientnet-pytorch", basemodel_name, pretrained=True
         )
         print("Done.")
