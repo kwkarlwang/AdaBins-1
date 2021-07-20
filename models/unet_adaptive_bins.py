@@ -65,7 +65,9 @@ class DecoderBN(nn.Module):
         # self.act_out = nn.Softmax(dim=1) if output_activation == 'softmax' else nn.Identity()
 
         # DeepLab v3 segmentation head
-        self.classifier = DeepLabHead(in_channels=features // 8, num_classes=seg_classes)
+        self.classifier = DeepLabHead(
+            in_channels=features // 8, num_classes=seg_classes
+        )
 
     def forward(self, features):
         x_block0, x_block1, x_block2, x_block3, x_block4 = (
@@ -91,8 +93,6 @@ class DecoderBN(nn.Module):
         #     return out, [x_block0, x_block1, x_block2, x_block3, x_block4, x_d1, x_d2, x_d3, x_d4]
 
         x_d3_seg = self.conv2_seg(x_d3)
-        #         x_seg = self.classifier(x_d0_seg)
-        #         out_seg = F.interpolate(x_seg, size=input_shape, mode='bilinear', align_corners=False)
         out_seg = self.classifier(x_d3_seg)
 
         return out, out_seg
@@ -275,7 +275,7 @@ class UnetAdaptiveBins(nn.Module):
         basemodel_name = "tf_efficientnet_b5_ap"
 
         print("Loading base model ()...".format(basemodel_name), end="")
-        basemodel = torch.hub.load( #type: ignore
+        basemodel = torch.hub.load(  # type: ignore
             "rwightman/gen-efficientnet-pytorch", basemodel_name, pretrained=True
         )
         print("Done.")
