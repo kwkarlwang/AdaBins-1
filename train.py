@@ -102,7 +102,8 @@ def main_worker(gpu, ngpus_per_node, args):
         )
         args.batch_size = int(args.batch_size / ngpus_per_node)
         # args.batch_size = 8
-        args.workers = int((args.num_workers + ngpus_per_node - 1) / ngpus_per_node)
+        args.workers = int(
+            (args.num_workers + ngpus_per_node - 1) / ngpus_per_node)
         print(args.gpu, args.rank, args.batch_size, args.workers)
         torch.cuda.set_device(args.gpu)
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -147,9 +148,8 @@ def train(
 ):
     global PROJECT
     if device is None:
-        device = (
-            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-        )
+        device = (torch.device("cuda")
+                  if torch.cuda.is_available() else torch.device("cpu"))
 
     ###################################### Logging setup #########################################
     print(f"Training {experiment_name}")
@@ -193,8 +193,14 @@ def train(
         print("Using diff LR")
         m = model.module if args.multigpu else model
         params = [
-            {"params": m.get_1x_lr_params(), "lr": lr / 10},
-            {"params": m.get_10x_lr_params(), "lr": lr},
+            {
+                "params": m.get_1x_lr_params(),
+                "lr": lr / 10
+            },
+            {
+                "params": m.get_10x_lr_params(),
+                "lr": lr
+            },
         ]
 
     optimizer = optim.AdamW(params, weight_decay=args.wd, lr=args.lr)
@@ -276,21 +282,16 @@ def train(
         train_seg_loader_it = iter(train_seg_loader)
         train_seg_loader_is_done = False
 
-        for i in (
-            tqdm(
+        for i in (tqdm(
                 range(steps_per_epoch),
                 desc=f"Epoch: {epoch + 1}/{epochs}. Loop: Train",
                 total=steps_per_epoch,
-            )
-            if is_rank_zero(args)
-            else range(steps_per_epoch)
-        ):
+        ) if is_rank_zero(args) else range(steps_per_epoch)):
 
             #################### random select a loader ########################
             has_seg = False
-            if train_loader_is_done or (
-                train_seg_loader_is_done == False and random.random() < 0.05
-            ):
+            if train_loader_is_done or (train_seg_loader_is_done == False
+                                        and random.random() < 0.05):
                 batch = next(train_seg_loader_it, None)
                 if batch is not None:
                     has_seg = True
@@ -314,16 +315,14 @@ def train(
             ###########################################################
             if has_seg:
                 if isinstance(model, torch.nn.DataParallel) or isinstance(
-                    model, torch.nn.parallel.DistributedDataParallel
-                ):
+                        model, torch.nn.parallel.DistributedDataParallel):
                     model.module.unfreeze_seg()
                 else:
                     model.unfreeze_seg()
             else:
 
                 if isinstance(model, torch.nn.DataParallel) or isinstance(
-                    model, torch.nn.parallel.DistributedDataParallel
-                ):
+                        model, torch.nn.parallel.DistributedDataParallel):
                     model.module.freeze_seg()
                 else:
                     model.freeze_seg()
@@ -335,13 +334,14 @@ def train(
             if "has_valid_depth" in batch:
                 if not batch["has_valid_depth"]:
                     continue
-                    
+
             bin_edges, pred, seg_out = model(img)
 
             mask = depth > args.min_depth
-            l_dense = criterion_ueff(
-                pred, depth, mask=mask.to(torch.bool), interpolate=True
-            )
+            l_dense = criterion_ueff(pred,
+                                     depth,
+                                     mask=mask.to(torch.bool),
+                                     interpolate=True)
 
             if args.w_chamfer > 0:
                 l_chamfer = criterion_bins(bin_edges, depth)
@@ -353,9 +353,9 @@ def train(
             if has_seg:
                 seg = batch["seg"].to(torch.long).to(device)
                 seg = seg.squeeze()
-                seg_out = nn.functional.interpolate(
-                    seg_out, seg.shape[-2:], mode="bilinear"
-                )
+                seg_out = nn.functional.interpolate(seg_out,
+                                                    seg.shape[-2:],
+                                                    mode="bilinear")
                 seg_loss = seg_criterion(seg_out, seg)
                 loss += args.w_seg * seg_loss
 
@@ -363,10 +363,13 @@ def train(
             nn.utils.clip_grad_norm_(model.parameters(), 0.1)  # optional
             optimizer.step()
             if should_log and step % 5 == 0:
-                wandb.log({f"Train/{criterion_ueff.name}": l_dense.item()}, step=step)
-                wandb.log({f"Train/{criterion_bins.name}": l_chamfer.item()}, step=step)
+                wandb.log({f"Train/{criterion_ueff.name}": l_dense.item()},
+                          step=step)
+                wandb.log({f"Train/{criterion_bins.name}": l_chamfer.item()},
+                          step=step)
             if should_log and has_seg:
-                wandb.log({f"Train/CrossEntropyLoss": l_chamfer.item()}, step=step)
+                wandb.log({f"Train/CrossEntropyLoss": l_chamfer.item()},
+                          step=step)
 
             step += 1
             scheduler.step()
@@ -399,9 +402,9 @@ def train(
                         step=step,
                     )
 
-                    wandb.log(
-                        {f"Metrics/{k}": v for k, v in metrics.items()}, step=step
-                    )
+                    wandb.log({f"Metrics/{k}": v
+                               for k, v in metrics.items()},
+                              step=step)
                     wandb.log({f"Metrics/mIoU": miou}, step=step)
 
                     model_io.save_checkpoint(
@@ -427,9 +430,14 @@ def train(
     return model
 
 
-def validate(
-    args, model, test_loader, criterion_ueff, epoch, epochs, seg_criterion, device="cpu"
-):
+def validate(args,
+             model,
+             test_loader,
+             criterion_ueff,
+             epoch,
+             epochs,
+             seg_criterion,
+             device="cpu"):
     with torch.no_grad():
         val_si = RunningAverage()
         # val_bins = RunningAverage()
@@ -441,11 +449,10 @@ def validate(
         iou = StreamSegMetrics(num_classes=41)
 
         i = 0
-        for batch in (
-            tqdm(test_loader, desc=f"Epoch: {epoch + 1}/{epochs}. Loop: Validation")
-            if is_rank_zero(args)
-            else test_loader
-        ):
+        for batch in (tqdm(
+                test_loader,
+                desc=f"Epoch: {epoch + 1}/{epochs}. Loop: Validation")
+                      if is_rank_zero(args) else test_loader):
             img = batch["image"].to(device)
             depth = batch["depth"].to(device)
             if "has_valid_depth" in batch:
@@ -459,14 +466,16 @@ def validate(
 
             mask = depth > args.min_depth
 
-            l_dense = criterion_ueff(
-                pred, depth, mask=mask.to(torch.bool), interpolate=True
-            )
+            l_dense = criterion_ueff(pred,
+                                     depth,
+                                     mask=mask.to(torch.bool),
+                                     interpolate=True)
             val_si.append(l_dense.item())
 
-            pred = nn.functional.interpolate(
-                pred, depth.shape[-2:], mode="bilinear", align_corners=True
-            )
+            pred = nn.functional.interpolate(pred,
+                                             depth.shape[-2:],
+                                             mode="bilinear",
+                                             align_corners=True)
 
             pred = pred.squeeze().cpu().numpy()
             pred[pred < args.min_depth_eval] = args.min_depth_eval
@@ -475,34 +484,37 @@ def validate(
             pred[np.isnan(pred)] = args.min_depth_eval
 
             gt_depth = depth.squeeze().cpu().numpy()
-            valid_mask = np.logical_and(
-                gt_depth > args.min_depth_eval, gt_depth < args.max_depth_eval
-            )
+            valid_mask = np.logical_and(gt_depth > args.min_depth_eval,
+                                        gt_depth < args.max_depth_eval)
             eval_mask = np.zeros(valid_mask.shape).astype(int)
             if args.garg_crop or args.eigen_crop:
                 gt_height, gt_width = gt_depth.shape
 
                 if args.garg_crop:
-                    eval_mask[
-                        int(0.40810811 * gt_height) : int(0.99189189 * gt_height),
-                        int(0.03594771 * gt_width) : int(0.96405229 * gt_width),
-                    ] = 1
+                    eval_mask[int(0.40810811 * gt_height):int(0.99189189 *
+                                                              gt_height),
+                              int(0.03594771 * gt_width):int(0.96405229 *
+                                                             gt_width), ] = 1
 
                 elif args.eigen_crop:
                     if args.dataset == "kitti":
-                        eval_mask[
-                            int(0.3324324 * gt_height) : int(0.91351351 * gt_height),
-                            int(0.0359477 * gt_width) : int(0.96405229 * gt_width),
-                        ] = 1
+                        eval_mask[int(0.3324324 * gt_height):int(0.91351351 *
+                                                                 gt_height),
+                                  int(0.0359477 *
+                                      gt_width):int(0.96405229 *
+                                                    gt_width), ] = 1
                     else:
                         eval_mask[45:471, 41:601] = 1
             valid_mask = np.logical_and(valid_mask, eval_mask)
-            metrics.update(utils.compute_errors(gt_depth[valid_mask], pred[valid_mask]))
+            metrics.update(
+                utils.compute_errors(gt_depth[valid_mask], pred[valid_mask]))
 
             seg = batch["seg"].to(torch.long).to(device)
             seg = seg.squeeze().unsqueeze(0)
 
-            seg_out = nn.functional.interpolate(seg_out, seg.shape[-2:], mode="bilinear")
+            seg_out = nn.functional.interpolate(seg_out,
+                                                seg.shape[-2:],
+                                                mode="bilinear")
             seg_loss = seg_criterion(seg_out, seg)
             val_ce.append(seg_loss)
 
@@ -533,14 +545,16 @@ if __name__ == "__main__":
 
     # Arguments
     parser = argparse.ArgumentParser(
-        description="Training script. Default values of all arguments are recommended for reproducibility",
+        description=
+        "Training script. Default values of all arguments are recommended for reproducibility",
         fromfile_prefix_chars="@",
         conflict_handler="resolve",
     )
     parser.convert_arg_line_to_args = convert_arg_line_to_args
-    parser.add_argument(
-        "--epochs", default=25, type=int, help="number of total epochs to run"
-    )
+    parser.add_argument("--epochs",
+                        default=25,
+                        type=int,
+                        help="number of total epochs to run")
     parser.add_argument(
         "--n-bins",
         "--n_bins",
@@ -555,9 +569,11 @@ if __name__ == "__main__":
         type=float,
         help="max learning rate",
     )
-    parser.add_argument(
-        "--wd", "--weight-decay", default=0.1, type=float, help="weight decay"
-    )
+    parser.add_argument("--wd",
+                        "--weight-decay",
+                        default=0.1,
+                        type=float,
+                        help="weight decay")
     parser.add_argument(
         "--w_chamfer",
         "--w-chamfer",
@@ -597,7 +613,10 @@ if __name__ == "__main__":
         type=int,
         help="validation period",
     )
-    parser.add_argument("--gpu", default=None, type=int, help="Which gpu to use")
+    parser.add_argument("--gpu",
+                        default=None,
+                        type=int,
+                        help="Which gpu to use")
     parser.add_argument("--name", default="UnetAdaptiveBins")
     parser.add_argument(
         "--norm",
@@ -613,30 +632,39 @@ if __name__ == "__main__":
         action="store_true",
         help="Use same LR for all param groups",
     )
-    parser.add_argument(
-        "--distributed", default=False, action="store_true", help="Use DDP if set"
-    )
-    parser.add_argument(
-        "--root", default=".", type=str, help="Root folder to save data in"
-    )
-    parser.add_argument("--resume", default="", type=str, help="Resume from checkpoint")
+    parser.add_argument("--distributed",
+                        default=False,
+                        action="store_true",
+                        help="Use DDP if set")
+    parser.add_argument("--root",
+                        default=".",
+                        type=str,
+                        help="Root folder to save data in")
+    parser.add_argument("--resume",
+                        default="",
+                        type=str,
+                        help="Resume from checkpoint")
 
     parser.add_argument("--notes", default="", type=str, help="Wandb notes")
     parser.add_argument("--tags", default="sweep", type=str, help="Wandb tags")
 
-    parser.add_argument(
-        "--workers", default=11, type=int, help="Number of workers for data loading"
-    )
-    parser.add_argument(
-        "--dataset", default="nyu", type=str, help="Dataset to train on"
-    )
+    parser.add_argument("--workers",
+                        default=11,
+                        type=int,
+                        help="Number of workers for data loading")
+    parser.add_argument("--dataset",
+                        default="nyu",
+                        type=str,
+                        help="Dataset to train on")
 
-    parser.add_argument(
-        "--data_path", default="../dataset/nyu/sync/", type=str, help="path to dataset"
-    )
-    parser.add_argument(
-        "--gt_path", default="../dataset/nyu/sync/", type=str, help="path to dataset"
-    )
+    parser.add_argument("--data_path",
+                        default="../dataset/nyu/sync/",
+                        type=str,
+                        help="path to dataset")
+    parser.add_argument("--gt_path",
+                        default="../dataset/nyu/sync/",
+                        type=str,
+                        help="path to dataset")
 
     parser.add_argument(
         "--filenames_file",
@@ -652,14 +680,22 @@ if __name__ == "__main__":
         help="path to the filenames text file with segmentation",
     )
 
-    parser.add_argument("--input_height", type=int, help="input height", default=416)
-    parser.add_argument("--input_width", type=int, help="input width", default=544)
-    parser.add_argument(
-        "--max_depth", type=float, help="maximum depth in estimation", default=10
-    )
-    parser.add_argument(
-        "--min_depth", type=float, help="minimum depth in estimation", default=1e-3
-    )
+    parser.add_argument("--input_height",
+                        type=int,
+                        help="input height",
+                        default=416)
+    parser.add_argument("--input_width",
+                        type=int,
+                        help="input width",
+                        default=544)
+    parser.add_argument("--max_depth",
+                        type=float,
+                        help="maximum depth in estimation",
+                        default=10)
+    parser.add_argument("--min_depth",
+                        type=float,
+                        help="minimum depth in estimation",
+                        default=1e-3)
 
     parser.add_argument(
         "--do_random_rotate",
@@ -667,9 +703,10 @@ if __name__ == "__main__":
         help="if set, will perform random rotation for augmentation",
         action="store_true",
     )
-    parser.add_argument(
-        "--degree", type=float, help="random rotation maximum degree", default=2.5
-    )
+    parser.add_argument("--degree",
+                        type=float,
+                        help="random rotation maximum degree",
+                        default=2.5)
     parser.add_argument(
         "--do_kb_crop",
         help="if set, crop input images as kitti benchmark images",
@@ -706,9 +743,10 @@ if __name__ == "__main__":
         help="minimum depth for evaluation",
         default=1e-3,
     )
-    parser.add_argument(
-        "--max_depth_eval", type=float, help="maximum depth for evaluation", default=10
-    )
+    parser.add_argument("--max_depth_eval",
+                        type=float,
+                        help="maximum depth for evaluation",
+                        default=10)
     parser.add_argument(
         "--eigen_crop",
         default=True,
@@ -742,7 +780,8 @@ if __name__ == "__main__":
         os.makedirs(args.root)
 
     try:
-        node_str = os.environ["SLURM_JOB_NODELIST"].replace("[", "").replace("]", "")
+        node_str = os.environ["SLURM_JOB_NODELIST"].replace("[", "").replace(
+            "]", "")
         nodes = node_str.split(",")
 
         args.world_size = len(nodes)
@@ -770,13 +809,15 @@ if __name__ == "__main__":
 
     # first download the model to cache the result
     basemodel_name = "tf_efficientnet_b5_ap"
-    torch.hub.load(
-        "rwightman/gen-efficientnet-pytorch", basemodel_name, pretrained=True
-    )
+    torch.hub.load("rwightman/gen-efficientnet-pytorch",
+                   basemodel_name,
+                   pretrained=True)
 
     if args.distributed:
         args.world_size = ngpus_per_node * args.world_size
-        mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, args))
+        mp.spawn(main_worker,
+                 nprocs=ngpus_per_node,
+                 args=(ngpus_per_node, args))
     else:
         if ngpus_per_node == 1:
             args.gpu = 0

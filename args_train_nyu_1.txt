@@ -27,6 +27,7 @@
 --min_depth_eval 1e-3
 --max_depth_eval 10
 --eigen_crop
---filenames_file_seg ./train_test_inputs/nyudepthv2_train_files_with_gt_seg.txt
+--filenames_file_vp ./train_test_inputs/train_vp.npy
+--vp_data_dir ./data
 --seg_classes 41
---w_seg 1.0
+--mat_file_path ../dataset/nyu_depth_v2/nyu_depth_v2_labeled.mat
