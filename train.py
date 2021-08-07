@@ -279,8 +279,8 @@ def train(
             optimizer.zero_grad()
             b: dict = batch  # type:ignore
 
-            img = b["image"].to(device)
-            depth = b["depth"].to(device)
+            img: torch.Tensor = b["image"].to(device)
+            depth: torch.Tensor = b["depth"].to(device)
             if "has_valid_depth" in b:
                 if not b["has_valid_depth"]:
                     continue
@@ -299,8 +299,7 @@ def train(
                 l_chamfer = torch.Tensor([0]).to(img.device)
 
             loss = l_dense + args.w_chamfer * l_chamfer
-            vp_loss = 0
-            vp_count = 0
+            vp = VP()
             if has_vp:
                 idxs = b["idx"].to(device)
                 for i, idx in enumerate(idxs):
@@ -313,11 +312,10 @@ def train(
                         line = torch.tensor(line).to(device)
                         sample_lines = VP.sample_points(line, args.num_points)
                         sample_lines = torch.vstack([*sample_lines])
-                        vp_loss += VP.calc_vp_loss(sample_lines, Kinv, pred[i],
-                                                   vd)
-                        vp_count += len(sample_lines)
+                        vp.update(sample_lines, Kinv, pred[i], vd, depth[i])
 
-                loss += args.w_seg * vp_loss / vp_count
+                vp_loss = vp.compute()
+                loss += args.w_seg * vp_loss
 
             loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), 0.1)  # optional
@@ -337,7 +335,7 @@ def train(
 
                 ################################# Validation loop ##################################################
                 model.eval()
-                metrics, val_si, val_ce = validate(
+                metrics = validate(
                     args,
                     model,
                     test_loader,
@@ -384,13 +382,9 @@ def validate(args,
              epochs,
              device="cpu"):
     with torch.no_grad():
-        val_si = RunningAverage()
+        # val_si = RunningAverage()
         # val_bins = RunningAverage()
         metrics = utils.RunningAverageDict()
-
-        val_ce = RunningAverage()
-
-        # iou = IoU(ignore_index=0, num_classes=41, device=device)
 
         i = 0
         for batch in (tqdm(
@@ -409,11 +403,10 @@ def validate(args,
 
             mask = depth > args.min_depth
 
-            l_dense = criterion_ueff(pred,
-                                     depth,
-                                     mask=mask.to(torch.bool),
-                                     interpolate=True)
-            val_si.append(l_dense.item())
+            # l_dense = criterion_ueff(pred,
+            #                          depth,
+            #                          mask=mask.to(torch.bool),
+            #                          interpolate=True)
 
             pred = nn.functional.interpolate(pred,
                                              depth.shape[-2:],
@@ -459,7 +452,7 @@ def validate(args,
         # print(miou)
         # miou = 0
 
-        return metrics.get_value(), val_si, val_ce
+        return metrics.get_value()
 
 
 def convert_arg_line_to_args(arg_line):

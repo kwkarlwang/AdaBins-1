@@ -11,8 +11,15 @@ from PIL import Image
 
 
 class VP:
+    def __init__(self) -> None:
+        self.count = 0
+        self.loss = 0
+
     @staticmethod
-    def sample_points(lines: torch.Tensor, num_points: int = 2):
+    def sample_points(
+        lines: torch.Tensor,
+        num_points: int = 2,
+    ):
         x1 = lines[:, 0:2]
         x2 = lines[:, 2:4]
 
@@ -23,11 +30,11 @@ class VP:
         end = torch.round(x1 + t2 * direction).to(torch.long)
         return torch.dstack((start, end)).reshape(-1, 4)
 
-    @staticmethod
-    def calc_vp_loss(lines: torch.Tensor, Kinv: torch.Tensor,
-                     depth_map: torch.Tensor, vd: torch.Tensor):
+    def update(self, lines: torch.Tensor, Kinv: torch.Tensor,
+               pred: torch.Tensor, vd: torch.Tensor, depth: torch.Tensor):
         x1, y1, x2, y2 = (lines[:, 0], lines[:, 1], lines[:, 2], lines[:, 3])
-        depth1, depth2 = depth_map[y1, x1], depth_map[y2, x2]
+        depth1, depth2 = pred[y1, x1], pred[y2, x2]
+        depth1_r, depth2_r = depth[y1, x1], depth[y2, x2]
         # 3xn
         u = Kinv @ torch.vstack((lines[:, 0:2].T, torch.ones(len(lines))))
         v = Kinv @ torch.vstack((lines[:, 2:4].T, torch.ones(len(lines))))
@@ -36,11 +43,21 @@ class VP:
         u3d = (depth1 * u).T
         # nx3
         v3d = (depth2 * v).T
-        loss = torch.norm(
-            torch.cross((u3d - v3d),
-                        vd[None, :].repeat((len(lines), 1)).to(torch.float32),
-                        dim=1)).sum()
-        return loss
+
+        u3d_r = (depth1_r * u).T
+        v3d_r = (depth2_r * v).T
+        vd_repeat = vd[None, :].repeat((len(lines), 1)).to(torch.float32)
+        loss = torch.norm(torch.cross((u3d - v3d), vd_repeat, dim=1))
+        loss_r = torch.norm(torch.cross((u3d_r - v3d_r), vd_repeat, dim=1))
+
+        # only calculate back prop high loss
+        invalid_loss = loss < loss_r
+        loss[invalid_loss] = 0
+        self.loss += loss.sum()
+        self.count += len(lines) - invalid_loss.sum()
+
+    def compute(self):
+        return self.loss / self.count
 
 
 class RunningAverage:
