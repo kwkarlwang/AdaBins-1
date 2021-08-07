@@ -10,12 +10,18 @@ class UpSampleBN(nn.Module):
         super(UpSampleBN, self).__init__()
 
         self._net = nn.Sequential(
-            nn.Conv2d(skip_input, output_features, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(skip_input,
+                      output_features,
+                      kernel_size=3,
+                      stride=1,
+                      padding=1),
             nn.BatchNorm2d(output_features),
             nn.LeakyReLU(),
-            nn.Conv2d(
-                output_features, output_features, kernel_size=3, stride=1, padding=1
-            ),
+            nn.Conv2d(output_features,
+                      output_features,
+                      kernel_size=3,
+                      stride=1,
+                      padding=1),
             nn.BatchNorm2d(output_features),
             nn.LeakyReLU(),
         )
@@ -23,7 +29,8 @@ class UpSampleBN(nn.Module):
     def forward(self, x, concat_with):
         up_x = F.interpolate(
             x,
-            size=[concat_with.size(2), concat_with.size(3)],
+            size=[concat_with.size(2),
+                  concat_with.size(3)],
             mode="bilinear",
             align_corners=True,
         )
@@ -33,41 +40,41 @@ class UpSampleBN(nn.Module):
 
 class DecoderBN(nn.Module):
     def __init__(
-        self, num_features=2048, num_classes=1, bottleneck_features=2048, seg_classes=41
+        self,
+        num_features=2048,
+        num_classes=1,
+        bottleneck_features=2048,
     ):
         super(DecoderBN, self).__init__()
         features = int(num_features)
 
-        self.conv2 = nn.Conv2d(
-            bottleneck_features, features, kernel_size=1, stride=1, padding=1
-        )
-        self.conv2_seg = nn.Conv2d(
-            features // 8, features // 8, kernel_size=1, stride=1, padding=1
-        )
+        self.conv2 = nn.Conv2d(bottleneck_features,
+                               features,
+                               kernel_size=1,
+                               stride=1,
+                               padding=1)
+        self.conv2_seg = nn.Conv2d(features // 8,
+                                   features // 8,
+                                   kernel_size=1,
+                                   stride=1,
+                                   padding=1)
 
-        self.up1 = UpSampleBN(
-            skip_input=features // 1 + 112 + 64, output_features=features // 2
-        )
-        self.up2 = UpSampleBN(
-            skip_input=features // 2 + 40 + 24, output_features=features // 4
-        )
-        self.up3 = UpSampleBN(
-            skip_input=features // 4 + 24 + 16, output_features=features // 8
-        )
-        self.up4 = UpSampleBN(
-            skip_input=features // 8 + 16 + 8, output_features=features // 16
-        )
+        self.up1 = UpSampleBN(skip_input=features // 1 + 112 + 64,
+                              output_features=features // 2)
+        self.up2 = UpSampleBN(skip_input=features // 2 + 40 + 24,
+                              output_features=features // 4)
+        self.up3 = UpSampleBN(skip_input=features // 4 + 24 + 16,
+                              output_features=features // 8)
+        self.up4 = UpSampleBN(skip_input=features // 8 + 16 + 8,
+                              output_features=features // 16)
 
         #         self.up5 = UpSample(skip_input=features // 16 + 3, output_features=features//16)
-        self.conv3 = nn.Conv2d(
-            features // 16, num_classes, kernel_size=3, stride=1, padding=1
-        )
+        self.conv3 = nn.Conv2d(features // 16,
+                               num_classes,
+                               kernel_size=3,
+                               stride=1,
+                               padding=1)
         # self.act_out = nn.Softmax(dim=1) if output_activation == 'softmax' else nn.Identity()
-
-        # DeepLab v3 segmentation head
-        self.classifier = DeepLabHead(
-            in_channels=features // 8, num_classes=seg_classes
-        )
 
     def forward(self, features):
         x_block0, x_block1, x_block2, x_block3, x_block4 = (
@@ -92,10 +99,7 @@ class DecoderBN(nn.Module):
         # elif with_intermediate:
         #     return out, [x_block0, x_block1, x_block2, x_block3, x_block4, x_d1, x_d2, x_d3, x_d4]
 
-        x_d3_seg = self.conv2_seg(x_d3)
-        out_seg = self.classifier(x_d3_seg)
-
-        return out, out_seg
+        return out
 
 
 class DeepLabHead(nn.Sequential):
@@ -139,7 +143,10 @@ class ASPPPooling(nn.Sequential):
         size = x.shape[-2:]
         for mod in self:
             x = mod(x)
-        return F.interpolate(x, size=size, mode="bilinear", align_corners=False)
+        return F.interpolate(x,
+                             size=size,
+                             mode="bilinear",
+                             align_corners=False)
 
 
 class ASPP(nn.Module):
@@ -151,8 +158,7 @@ class ASPP(nn.Module):
                 nn.Conv2d(in_channels, out_channels, 1, bias=False),
                 nn.BatchNorm2d(out_channels),
                 nn.ReLU(),
-            )
-        )
+            ))
 
         rates = tuple(atrous_rates)
         for rate in rates:
@@ -163,7 +169,10 @@ class ASPP(nn.Module):
         self.convs = nn.ModuleList(modules)
 
         self.project = nn.Sequential(
-            nn.Conv2d(len(self.convs) * out_channels, out_channels, 1, bias=False),
+            nn.Conv2d(len(self.convs) * out_channels,
+                      out_channels,
+                      1,
+                      bias=False),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(),
             nn.Dropout(0.5),
@@ -194,15 +203,12 @@ class Encoder(nn.Module):
 
 
 class UnetAdaptiveBins(nn.Module):
-    def __init__(
-        self,
-        backend,
-        n_bins=100,
-        min_val=0.1,
-        max_val=10,
-        norm="linear",
-        seg_classes=41,
-    ):
+    def __init__(self,
+                 backend,
+                 n_bins=100,
+                 min_val=0.1,
+                 max_val=10,
+                 norm="linear"):
         super(UnetAdaptiveBins, self).__init__()
         self.num_classes = n_bins
         self.min_val = min_val
@@ -217,27 +223,27 @@ class UnetAdaptiveBins(nn.Module):
             norm=norm,
         )
 
-        self.decoder = DecoderBN(num_classes=128, seg_classes=seg_classes)
+        self.decoder = DecoderBN(num_classes=128)
         self.conv_out = nn.Sequential(
             nn.Conv2d(128, n_bins, kernel_size=1, stride=1, padding=0),
             nn.Softmax(dim=1),
         )
 
     def forward(self, x):
-        unet_out, seg_out = self.decoder(self.encoder(x))
-        bin_widths_normed, range_attention_maps = self.adaptive_bins_layer(unet_out)
+        unet_out = self.decoder(self.encoder(x))
+        bin_widths_normed, range_attention_maps = self.adaptive_bins_layer(
+            unet_out)
         out = self.conv_out(range_attention_maps)
 
         # Post process
         # n, c, h, w = out.shape
         # hist = torch.sum(out.view(n, c, h * w), dim=2) / (h * w)  # not used for training
 
-        bin_widths = (
-            self.max_val - self.min_val
-        ) * bin_widths_normed  # .shape = N, dim_out
-        bin_widths = nn.functional.pad(
-            bin_widths, (1, 0), mode="constant", value=self.min_val
-        )
+        bin_widths = (self.max_val -
+                      self.min_val) * bin_widths_normed  # .shape = N, dim_out
+        bin_widths = nn.functional.pad(bin_widths, (1, 0),
+                                       mode="constant",
+                                       value=self.min_val)
         bin_edges = torch.cumsum(bin_widths, dim=1)
 
         centers = 0.5 * (bin_edges[:, :-1] + bin_edges[:, 1:])
@@ -246,7 +252,7 @@ class UnetAdaptiveBins(nn.Module):
 
         pred = torch.sum(out * centers, dim=1, keepdim=True)
 
-        return bin_edges, pred, seg_out
+        return bin_edges, pred
 
     def freeze_seg(self):
         d = self.decoder
@@ -276,8 +282,9 @@ class UnetAdaptiveBins(nn.Module):
 
         print("Loading base model ()...".format(basemodel_name), end="")
         basemodel = torch.hub.load(  # type: ignore
-            "rwightman/gen-efficientnet-pytorch", basemodel_name, pretrained=True
-        )
+            "rwightman/gen-efficientnet-pytorch",
+            basemodel_name,
+            pretrained=True)
         print("Done.")
 
         # Remove last layer

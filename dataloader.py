@@ -26,9 +26,12 @@ def preprocessing_transforms(mode):
 
 class DepthDataLoader(object):
     def __init__(self, args, mode):
-        if mode == "train" or mode == "train_seg" or mode == "train_vp":
-            self.training_samples = DataLoadPreprocess(
-                args, mode, transform=preprocessing_transforms(mode))
+        if mode == "train" or mode == "train_seg" or "train_vp":
+            if mode == "train_vp":
+                self.training_samples = DataLoadPreprocessVP(args)
+            else:
+                self.training_samples = DataLoadPreprocess(
+                    args, mode, transform=preprocessing_transforms(mode))
             if args.distributed:
                 self.train_sampler = torch.utils.data.distributed.DistributedSampler(
                     self.training_samples)
@@ -80,8 +83,7 @@ def remove_leading_slash(s):
     return s
 
 
-class DataLoadPreprocessVP(
-        Dataset, ):
+class DataLoadPreprocessVP(Dataset):
     def __init__(self, args):
         self.args = args
         self.filenames = np.load(args.filenames_file_vp)
@@ -99,16 +101,20 @@ class DataLoadPreprocessVP(
         d = self.dataset[idx]
         image_rgb = d['image']
         depth = d['depth']
-        lines = d['labelled_lines']
-        vds = d['VDs']
+        # lines = d['labelled_lines']
+        # vds = d['VDs']
         sample = {
             'image': image_rgb,
             'depth': depth,
-            'labelled_lines': lines,
-            'vds': vds,
+            'idx': idx,
+            # 'labelled_lines': lines,
+            # 'vds': vds,
             'focal': 0
         }
         return self.to_tensor(sample)
+
+    def __len__(self):
+        return len(self.filenames)
 
 
 class DataLoadPreprocess(Dataset):
@@ -381,8 +387,9 @@ class ToTensor(object):
             return {
                 "image": image,
                 "depth": depth,
-                "vds": sample['vds'],
-                "labelled_lines": sample['labelled_lines']
+                "idx": sample['idx']
+                # "vds": sample['vds'],
+                # "labelled_lines": sample['labelled_lines']
             }
         elif self.mode == "online_eval_seg":
             seg = sample["seg"]

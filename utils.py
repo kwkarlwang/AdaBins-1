@@ -10,6 +10,39 @@ import torch.nn
 from PIL import Image
 
 
+class VP:
+    @staticmethod
+    def sample_points(lines: torch.Tensor, num_points: int = 2):
+        x1 = lines[:, 0:2]
+        x2 = lines[:, 2:4]
+
+        direction = x2 - x1
+        t1 = torch.rand((num_points, len(lines), 1))
+        t2 = torch.rand((num_points, len(lines), 1))
+        start = torch.round(x1 + t1 * direction).to(torch.long)
+        end = torch.round(x1 + t2 * direction).to(torch.long)
+        return torch.dstack((start, end)).reshape(-1, 4)
+
+    @staticmethod
+    def calc_vp_loss(lines: torch.Tensor, Kinv: torch.Tensor,
+                     depth_map: torch.Tensor, vd: torch.Tensor):
+        x1, y1, x2, y2 = (lines[:, 0], lines[:, 1], lines[:, 2], lines[:, 3])
+        depth1, depth2 = depth_map[y1, x1], depth_map[y2, x2]
+        # 3xn
+        u = Kinv @ torch.vstack((lines[:, 0:2].T, torch.ones(len(lines))))
+        v = Kinv @ torch.vstack((lines[:, 2:4].T, torch.ones(len(lines))))
+
+        # nx3
+        u3d = (depth1 * u).T
+        # nx3
+        v3d = (depth2 * v).T
+        loss = torch.norm(
+            torch.cross((u3d - v3d),
+                        vd[None, :].repeat((len(lines), 1)).to(torch.float32),
+                        dim=1)).sum()
+        return loss
+
+
 class RunningAverage:
     def __init__(self):
         self.avg = 0
@@ -76,20 +109,20 @@ def count_parameters(model):
 def compute_errors(gt, pred):
     thresh = np.maximum((gt / pred), (pred / gt))
     a1 = (thresh < 1.25).mean()
-    a2 = (thresh < 1.25 ** 2).mean()
-    a3 = (thresh < 1.25 ** 3).mean()
+    a2 = (thresh < 1.25**2).mean()
+    a3 = (thresh < 1.25**3).mean()
 
     abs_rel = np.mean(np.abs(gt - pred) / gt)
-    sq_rel = np.mean(((gt - pred) ** 2) / gt)
+    sq_rel = np.mean(((gt - pred)**2) / gt)
 
-    rmse = (gt - pred) ** 2
+    rmse = (gt - pred)**2
     rmse = np.sqrt(rmse.mean())
 
-    rmse_log = (np.log(gt) - np.log(pred)) ** 2
+    rmse_log = (np.log(gt) - np.log(pred))**2
     rmse_log = np.sqrt(rmse_log.mean())
 
     err = np.log(pred) - np.log(gt)
-    silog = np.sqrt(np.mean(err ** 2) - np.mean(err) ** 2) * 100
+    silog = np.sqrt(np.mean(err**2) - np.mean(err)**2) * 100
 
     log_10 = (np.abs(np.log10(gt) - np.log10(pred))).mean()
     return dict(
@@ -106,9 +139,10 @@ def compute_errors(gt, pred):
 
 
 class IoU:
-    def __init__(
-        self, num_classes: int, ignore_index: int = None, device="cpu"
-    ) -> None:
+    def __init__(self,
+                 num_classes: int,
+                 ignore_index: int = None,
+                 device="cpu") -> None:
         self.ignore_index = ignore_index
         self.num_classes = num_classes
         self.intersections = torch.zeros(num_classes).to(device)
@@ -173,18 +207,19 @@ class StreamSegMetrics(_StreamMetrics):
     """
     Stream Metrics for Semantic Segmentation Task
     """
-
     def __init__(self, num_classes):
         self.num_classes = num_classes
         self.confusion_matrix = np.zeros((num_classes, num_classes))
 
     def update(self, label_trues, label_preds):
         for lt, lp in zip(label_trues, label_preds):
-            self.confusion_matrix += self._fast_hist(lt.flatten(), lp.flatten())
+            self.confusion_matrix += self._fast_hist(lt.flatten(),
+                                                     lp.flatten())
 
     def compute(self):
         hist = self.confusion_matrix
-        iu = np.diag(hist) / (hist.sum(axis=1) + hist.sum(axis=0) - np.diag(hist))
+        iu = np.diag(hist) / (hist.sum(axis=1) + hist.sum(axis=0) -
+                              np.diag(hist))
         mean_iu = np.nanmean(iu)
         # freq = hist.sum(axis=1) / hist.sum()
         # fwavacc = (freq[freq > 0] * iu[freq > 0]).sum()
@@ -208,7 +243,7 @@ class StreamSegMetrics(_StreamMetrics):
         mask = (label_true > 0) & (label_true < self.num_classes)
         hist = np.bincount(
             self.num_classes * label_true[mask].astype(int) + label_pred[mask],
-            minlength=self.num_classes ** 2,
+            minlength=self.num_classes**2,
         ).reshape(self.num_classes, self.num_classes)
         return hist
 
@@ -223,7 +258,8 @@ class StreamSegMetrics(_StreamMetrics):
         acc = np.diag(hist).sum() / hist.sum()
         acc_cls = np.diag(hist) / hist.sum(axis=1)
         acc_cls = np.nanmean(acc_cls)
-        iu = np.diag(hist) / (hist.sum(axis=1) + hist.sum(axis=0) - np.diag(hist))
+        iu = np.diag(hist) / (hist.sum(axis=1) + hist.sum(axis=0) -
+                              np.diag(hist))
         mean_iu = np.nanmean(iu)
         freq = hist.sum(axis=1) / hist.sum()
         fwavacc = (freq[freq > 0] * iu[freq > 0]).sum()
@@ -242,6 +278,7 @@ class StreamSegMetrics(_StreamMetrics):
 
 
 #####################################################################################################
+
 
 ##################################### Demo Utilities ############################################
 def b64_to_pil(b64string):

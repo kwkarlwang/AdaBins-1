@@ -1,4 +1,5 @@
 import argparse
+from nyu import NYUVP
 import os
 import sys
 import uuid
@@ -10,7 +11,6 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.optim as optim
-from torch.tensor import Tensor
 import torch.utils.data.distributed
 import wandb
 from tqdm import tqdm
@@ -20,7 +20,8 @@ import models
 import utils
 from dataloader import DepthDataLoader
 from loss import SILogLoss, BinsChamferLoss
-from utils import IoU, RunningAverage, StreamSegMetrics, colorize
+from utils import RunningAverage, VP, colorize
+from torch import nn
 
 import random
 
@@ -48,7 +49,7 @@ def colorize(value, vmin=10, vmax=1000, cmap="plasma"):
     # squeeze last dim if it exists
     # value = value.squeeze(axis=0)
 
-    cmapper = matplotlib.cm.get_cmap(cmap)
+    cmapper = matplotlib.cm.get_cmap(cmap)  # type: ignore
     value = cmapper(value, bytes=True)  # (nxmx4)
 
     img = value[:, :, :3]
@@ -86,7 +87,7 @@ def main_worker(gpu, ngpus_per_node, args):
     ################################################################################################
 
     if args.gpu is not None:  # If a gpu is set by user: NO PARALLELISM!!
-        torch.cuda.set_device(args.gpu)
+        torch.cuda.set_device(args.gpu)  # type: ignore
         model = model.cuda(args.gpu)
 
     args.multigpu = False
@@ -105,10 +106,10 @@ def main_worker(gpu, ngpus_per_node, args):
         args.workers = int(
             (args.num_workers + ngpus_per_node - 1) / ngpus_per_node)
         print(args.gpu, args.rank, args.batch_size, args.workers)
-        torch.cuda.set_device(args.gpu)
+        torch.cuda.set_device(args.gpu)  # type: ignore
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
         model = model.cuda(args.gpu)
-        model = torch.nn.parallel.DistributedDataParallel(
+        model = nn.parallel.DistributedDataParallel(
             model,
             device_ids=[args.gpu],
             output_device=args.gpu,
@@ -119,7 +120,7 @@ def main_worker(gpu, ngpus_per_node, args):
         # Use DP
         args.multigpu = True
         model = model.cuda()
-        model = torch.nn.DataParallel(model)
+        model = nn.DataParallel(model)
         print("USING DATA PARALLEL")
 
     args.epoch = 0
@@ -148,8 +149,8 @@ def train(
 ):
     global PROJECT
     if device is None:
-        device = (torch.device("cuda")
-                  if torch.cuda.is_available() else torch.device("cpu"))
+        device = (torch.device("cuda") if torch.cuda.is_available() else
+                  torch.device("cpu"))  # type: ignore
 
     ###################################### Logging setup #########################################
     print(f"Training {experiment_name}")
@@ -174,13 +175,16 @@ def train(
     ################################################################################################
     test_loader = DepthDataLoader(args, "online_eval_seg").data
     train_loader = DepthDataLoader(args, "train").data
-    train_seg_loader = DepthDataLoader(args, "train_seg").data
+    # train_seg_loader = DepthDataLoader(args, "train_seg").data
+    DDL = DepthDataLoader(args, 'train_vp')
+    train_vp_loader = DDL.data
+    train_vp_dataset: NYUVP = DDL.training_samples.dataset  # type:ignore
+    Kinv = torch.tensor(train_vp_dataset.Kinv).to(torch.float32)
 
     ###################################### losses ##############################################
     criterion_ueff = SILogLoss()
-    criterion_bins = BinsChamferLoss() if args.chamfer else None
+    criterion_bins = BinsChamferLoss()
 
-    seg_criterion = nn.CrossEntropyLoss()
     ################################################################################################
 
     model.train()
@@ -208,13 +212,13 @@ def train(
         optimizer.load_state_dict(optimizer_state_dict)
     ################################################################################################
     # some globals
-    iters = len(train_loader) + len(train_seg_loader)
+    iters = len(train_loader) + len(train_vp_loader)
     step = args.epoch * iters
     best_loss = np.inf
 
     ###################################### Scheduler ###############################################
-    steps_per_epoch = len(train_loader) + len(train_seg_loader)
-    scheduler = optim.lr_scheduler.OneCycleLR(
+    steps_per_epoch = len(train_loader) + len(train_vp_loader)
+    scheduler = optim.lr_scheduler.OneCycleLR(  # type: ignore
         optimizer,
         lr,
         epochs=epochs,
@@ -230,48 +234,6 @@ def train(
         scheduler.step(args.epoch + 1)
     ################################################################################################
 
-    ################################# DELETE ##################################################
-    print("number of gpus")
-    print(args.ngpus_per_node)
-    # model.eval()
-    # metrics, val_si, miou, val_ce = validate(
-    #     args, model, test_loader, criterion_ueff, 0, epochs, seg_criterion, device,
-    # )
-
-    # # print("Validated: {}".format(metrics))
-    # if should_log:
-    #     wandb.log(
-    #         {
-    #             f"Test/{criterion_ueff.name}": val_si.get_value(),
-    #             f"Test/CrossEntropyLoss": val_ce.get_value(),
-    #             # f"Test/{criterion_bins.name}": val_bins.get_value()
-    #         },
-    #         step=step,
-    #     )
-
-    #     wandb.log({f"Metrics/{k}": v for k, v in metrics.items()}, step=step)
-    #     wandb.log({f"Metrics/mIoU": miou}, step=step)
-
-    #     model_io.save_checkpoint(
-    #         model,
-    #         optimizer,
-    #         0,
-    #         f"{experiment_name}_{run_id}_latest.pt",
-    #         root=os.path.join(root, "checkpoints"),
-    #     )
-
-    # if metrics["abs_rel"] < best_loss and should_write:
-    #     model_io.save_checkpoint(
-    #         model,
-    #         optimizer,
-    #         0,
-    #         f"{experiment_name}_{run_id}_best.pt",
-    #         root=os.path.join(root, "checkpoints"),
-    #     )
-    #     best_loss = metrics["abs_rel"]
-    # model.train()
-    #################################################################################################
-    # max_iter = len(train_loader) * epochs
     for epoch in range(args.epoch, epochs):
 
         ################################# Train loop ##########################################################
@@ -279,24 +241,24 @@ def train(
             wandb.log({"Epoch": epoch}, step=step)
         train_loader_it = iter(train_loader)
         train_loader_is_done = False
-        train_seg_loader_it = iter(train_seg_loader)
-        train_seg_loader_is_done = False
+        train_vp_loader_it = iter(train_vp_loader)
+        train_vp_loader_is_done = False
 
-        for i in (tqdm(
+        for _ in (tqdm(
                 range(steps_per_epoch),
                 desc=f"Epoch: {epoch + 1}/{epochs}. Loop: Train",
                 total=steps_per_epoch,
         ) if is_rank_zero(args) else range(steps_per_epoch)):
 
             #################### random select a loader ########################
-            has_seg = False
-            if train_loader_is_done or (train_seg_loader_is_done == False
+            has_vp = False
+            if train_loader_is_done or (train_vp_loader_is_done == False
                                         and random.random() < 0.05):
-                batch = next(train_seg_loader_it, None)
+                batch = next(train_vp_loader_it, None)
                 if batch is not None:
-                    has_seg = True
+                    has_vp = True
                 else:
-                    train_seg_loader_is_done = True
+                    train_vp_loader_is_done = True
                     batch = next(train_loader_it, None)
                     if batch is None:
                         train_loader_is_done = True
@@ -304,38 +266,26 @@ def train(
                 batch = next(train_loader_it, None)
                 if batch is None:
                     train_loader_is_done = True
-                    batch = next(train_seg_loader_it, None)
+                    batch = next(train_vp_loader_it, None)
                     if batch is not None:
-                        has_seg = True
+                        has_vp = True
                     else:
-                        train_seg_loader_is_done = True
+                        train_vp_loader_is_done = True
 
-            if train_loader_is_done and train_seg_loader_is_done:
+            if train_loader_is_done and train_vp_loader_is_done:
                 break
             ###########################################################
-            if has_seg:
-                if isinstance(model, torch.nn.DataParallel) or isinstance(
-                        model, torch.nn.parallel.DistributedDataParallel):
-                    model.module.unfreeze_seg()
-                else:
-                    model.unfreeze_seg()
-            else:
-
-                if isinstance(model, torch.nn.DataParallel) or isinstance(
-                        model, torch.nn.parallel.DistributedDataParallel):
-                    model.module.freeze_seg()
-                else:
-                    model.freeze_seg()
 
             optimizer.zero_grad()
+            b: dict = batch  # type:ignore
 
-            img = batch["image"].to(device)
-            depth = batch["depth"].to(device)
-            if "has_valid_depth" in batch:
-                if not batch["has_valid_depth"]:
+            img = b["image"].to(device)
+            depth = b["depth"].to(device)
+            if "has_valid_depth" in b:
+                if not b["has_valid_depth"]:
                     continue
 
-            bin_edges, pred, seg_out = model(img)
+            bin_edges, pred = model(img)
 
             mask = depth > args.min_depth
             l_dense = criterion_ueff(pred,
@@ -349,15 +299,25 @@ def train(
                 l_chamfer = torch.Tensor([0]).to(img.device)
 
             loss = l_dense + args.w_chamfer * l_chamfer
-            seg_loss = 0
-            if has_seg:
-                seg = batch["seg"].to(torch.long).to(device)
-                seg = seg.squeeze()
-                seg_out = nn.functional.interpolate(seg_out,
-                                                    seg.shape[-2:],
-                                                    mode="bilinear")
-                seg_loss = seg_criterion(seg_out, seg)
-                loss += args.w_seg * seg_loss
+            vp_loss = 0
+            vp_count = 0
+            if has_vp:
+                idxs = b["idx"].to(device)
+                for i, idx in enumerate(idxs):
+                    sample = train_vp_dataset[idx]
+                    lines_set = sample['labelled_lines']
+                    vds = torch.tensor(sample['VDs']).to(device)
+                    # each i correspond to a vanshing direction
+                    for j, line in enumerate(lines_set):
+                        vd = vds[j]
+                        line = torch.tensor(line).to(device)
+                        sample_lines = VP.sample_points(line, args.num_points)
+                        sample_lines = torch.vstack([*sample_lines])
+                        vp_loss += VP.calc_vp_loss(sample_lines, Kinv, pred[i],
+                                                   vd)
+                        vp_count += len(sample_lines)
+
+                loss += args.w_seg * vp_loss / vp_count
 
             loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), 0.1)  # optional
@@ -366,9 +326,6 @@ def train(
                 wandb.log({f"Train/{criterion_ueff.name}": l_dense.item()},
                           step=step)
                 wandb.log({f"Train/{criterion_bins.name}": l_chamfer.item()},
-                          step=step)
-            if should_log and has_seg:
-                wandb.log({f"Train/CrossEntropyLoss": l_chamfer.item()},
                           step=step)
 
             step += 1
@@ -380,32 +337,21 @@ def train(
 
                 ################################# Validation loop ##################################################
                 model.eval()
-                metrics, val_si, miou, val_ce = validate(
+                metrics, val_si, val_ce = validate(
                     args,
                     model,
                     test_loader,
                     criterion_ueff,
                     epoch,
                     epochs,
-                    seg_criterion,
                     device,
                 )
 
                 # print("Validated: {}".format(metrics))
                 if should_log:
-                    wandb.log(
-                        {
-                            f"Test/{criterion_ueff.name}": val_si.get_value(),
-                            f"Test/CrossEntropyLoss": val_ce.get_value(),
-                            # f"Test/{criterion_bins.name}": val_bins.get_value()
-                        },
-                        step=step,
-                    )
-
                     wandb.log({f"Metrics/{k}": v
                                for k, v in metrics.items()},
                               step=step)
-                    wandb.log({f"Metrics/mIoU": miou}, step=step)
 
                     model_io.save_checkpoint(
                         model,
@@ -436,7 +382,6 @@ def validate(args,
              criterion_ueff,
              epoch,
              epochs,
-             seg_criterion,
              device="cpu"):
     with torch.no_grad():
         val_si = RunningAverage()
@@ -446,7 +391,6 @@ def validate(args,
         val_ce = RunningAverage()
 
         # iou = IoU(ignore_index=0, num_classes=41, device=device)
-        iou = StreamSegMetrics(num_classes=41)
 
         i = 0
         for batch in (tqdm(
@@ -459,10 +403,9 @@ def validate(args,
                 if not batch["has_valid_depth"]:
                     continue
             depth = depth.squeeze().unsqueeze(0).unsqueeze(0)
-            bins, pred, seg_out = model(img)
+            bins, pred = model(img)
 
             pred = pred.to(device)
-            seg_out = seg_out.to(device)
 
             mask = depth > args.min_depth
 
@@ -509,29 +452,14 @@ def validate(args,
             metrics.update(
                 utils.compute_errors(gt_depth[valid_mask], pred[valid_mask]))
 
-            seg = batch["seg"].to(torch.long).to(device)
-            seg = seg.squeeze().unsqueeze(0)
-
-            seg_out = nn.functional.interpolate(seg_out,
-                                                seg.shape[-2:],
-                                                mode="bilinear")
-            seg_loss = seg_criterion(seg_out, seg)
-            val_ce.append(seg_loss)
-
-            seg_pred = seg_out.squeeze().argmax(dim=0).cpu().numpy()
-            seg = seg.squeeze().cpu().numpy()
-
-            iou.update(seg, seg_pred)
-
             # i += 1
             # if i > 50:
             #     break
 
-        miou = iou.compute()
         # print(miou)
         # miou = 0
 
-        return metrics.get_value(), val_si, miou, val_ce
+        return metrics.get_value(), val_si, val_ce
 
 
 def convert_arg_line_to_args(arg_line):
@@ -760,10 +688,10 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--seg_classes",
-        default=41,
+        "--num_points",
+        default=4,
         type=int,
-        help="Number of classes in the segmentation",
+        help="Number of points to sample per line",
     )
 
     if sys.argv.__len__() >= 2:
