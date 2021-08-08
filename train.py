@@ -178,7 +178,7 @@ def train(
     DDL = DepthDataLoader(args, 'train_vp')
     train_vp_loader = DDL.data
     train_vp_dataset: NYUVP = DDL.training_samples.dataset  # type:ignore
-    Kinv = torch.tensor(train_vp_dataset.Kinv).to(torch.float32)
+    Kinv = torch.tensor(train_vp_dataset.Kinv).to(torch.float32).to(device)
 
     ###################################### losses ##############################################
     criterion_ueff = SILogLoss()
@@ -315,7 +315,7 @@ def train(
                         vp.update(sample_lines, Kinv, pred[i], vd, depth[i])
 
                 vp_loss = vp.compute()
-                loss += args.w_seg * vp_loss
+                loss += args.w_vp * vp_loss
 
             loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), 0.1)  # optional
@@ -511,8 +511,8 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--w_seg",
-        "--w-seg",
+        "--w_vp",
+        "--w-vp",
         default=0.3,
         type=float,
         help="weight value for chamfer loss",
