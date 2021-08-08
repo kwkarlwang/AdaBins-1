@@ -88,6 +88,7 @@ def main_worker(gpu, ngpus_per_node, args):
     if args.gpu is not None:  # If a gpu is set by user: NO PARALLELISM!!
         torch.cuda.set_device(args.gpu)  # type: ignore
         model = model.cuda(args.gpu)
+        print("USING 1 GPU")
 
     args.multigpu = False
     if args.distributed:
