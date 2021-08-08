@@ -25,8 +25,8 @@ class VP:
         x2 = lines[:, 2:4]
 
         direction = x2 - x1
-        t1 = torch.rand((num_points, len(lines), 1)).to(self.device)
-        t2 = torch.rand((num_points, len(lines), 1)).to(self.device)
+        t1 = torch.rand((num_points, lines.shape[0], 1)).to(self.device)
+        t2 = torch.rand((num_points, lines.shape[0], 1)).to(self.device)
         start = torch.round(x1 + t1 * direction).to(torch.long)
         end = torch.round(x1 + t2 * direction).to(torch.long)
         return torch.dstack((start, end)).reshape(-1, 4).to(self.device)
