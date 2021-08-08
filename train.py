@@ -251,8 +251,9 @@ def train(
 
             #################### random select a loader ########################
             has_vp = False
-            if train_loader_is_done or (train_vp_loader_is_done == False
-                                        and random.random() < 0.05):
+            if True or train_loader_is_done or (train_vp_loader_is_done
+                                                == False
+                                                and random.random() < 0.05):
                 batch = next(train_vp_loader_it, None)
                 if batch is not None:
                     has_vp = True
@@ -298,7 +299,7 @@ def train(
                 l_chamfer = torch.Tensor([0]).to(img.device)
 
             loss = l_dense + args.w_chamfer * l_chamfer
-            vp = VP()
+            vp = VP(device)
             if has_vp:
                 idxs = b["idx"].to(device)
                 for i, idx in enumerate(idxs):
@@ -309,7 +310,7 @@ def train(
                     for j, line in enumerate(lines_set):
                         vd = vds[j]
                         line = torch.tensor(line).to(device)
-                        sample_lines = VP.sample_points(line, args.num_points)
+                        sample_lines = vp.sample_points(line, args.num_points)
                         sample_lines = torch.vstack([*sample_lines])
                         vp.update(sample_lines, Kinv, pred[i], vd, depth[i])
 
@@ -412,7 +413,7 @@ def validate(args,
                                      depth,
                                      mask=mask.to(torch.bool),
                                      interpolate=True)
-            val_si.ArgumentParser(l_dense.item())
+            val_si.append(l_dense.item())
 
             pred = nn.functional.interpolate(pred,
                                              depth.shape[-2:],

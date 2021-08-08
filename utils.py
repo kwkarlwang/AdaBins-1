@@ -11,12 +11,13 @@ from PIL import Image
 
 
 class VP:
-    def __init__(self) -> None:
+    def __init__(self, device='cpu') -> None:
         self.count = 0
         self.loss = 0
+        self.device = device
 
-    @staticmethod
     def sample_points(
+        self,
         lines: torch.Tensor,
         num_points: int = 2,
     ):
@@ -24,8 +25,8 @@ class VP:
         x2 = lines[:, 2:4]
 
         direction = x2 - x1
-        t1 = torch.rand((num_points, len(lines), 1))
-        t2 = torch.rand((num_points, len(lines), 1))
+        t1 = torch.rand((num_points, len(lines), 1)).to(self.device)
+        t2 = torch.rand((num_points, len(lines), 1)).to(self.device)
         start = torch.round(x1 + t1 * direction).to(torch.long)
         end = torch.round(x1 + t2 * direction).to(torch.long)
         return torch.dstack((start, end)).reshape(-1, 4)
