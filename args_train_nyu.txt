@@ -15,7 +15,6 @@
 --data_path ../dataset/nyu_depth_v2/sync/
 --gt_path ../dataset/nyu_depth_v2/sync/
 --filenames_file ./train_test_inputs/nyudepthv2_train_files_with_gt.txt
---filenames_file_seg ./train_test_inputs/nyudepthv2_train_files_with_gt_seg.txt
 --input_height 416
 --input_width 544
 --min_depth 0.001

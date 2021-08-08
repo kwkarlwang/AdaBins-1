@@ -81,7 +81,6 @@ def main_worker(gpu, ngpus_per_node, args):
         min_val=args.min_depth,
         max_val=args.max_depth,
         norm=args.norm,
-        seg_classes=args.seg_classes,
     )
 
     ################################################################################################
@@ -335,7 +334,7 @@ def train(
 
                 ################################# Validation loop ##################################################
                 model.eval()
-                metrics = validate(
+                metrics, val_si = validate(
                     args,
                     model,
                     test_loader,
@@ -347,6 +346,12 @@ def train(
 
                 # print("Validated: {}".format(metrics))
                 if should_log:
+                    wandb.log(
+                        {
+                            f"Test/{criterion_ueff.name}": val_si.get_value(),
+                            # f"Test/{criterion_bins.name}": val_bins.get_value()
+                        },
+                        step=step)
                     wandb.log({f"Metrics/{k}": v
                                for k, v in metrics.items()},
                               step=step)
@@ -382,7 +387,7 @@ def validate(args,
              epochs,
              device="cpu"):
     with torch.no_grad():
-        # val_si = RunningAverage()
+        val_si = RunningAverage()
         # val_bins = RunningAverage()
         metrics = utils.RunningAverageDict()
 
@@ -403,10 +408,11 @@ def validate(args,
 
             mask = depth > args.min_depth
 
-            # l_dense = criterion_ueff(pred,
-            #                          depth,
-            #                          mask=mask.to(torch.bool),
-            #                          interpolate=True)
+            l_dense = criterion_ueff(pred,
+                                     depth,
+                                     mask=mask.to(torch.bool),
+                                     interpolate=True)
+            val_si.ArgumentParser(l_dense.item())
 
             pred = nn.functional.interpolate(pred,
                                              depth.shape[-2:],
@@ -452,7 +458,7 @@ def validate(args,
         # print(miou)
         # miou = 0
 
-        return metrics.get_value()
+        return metrics.get_value(), val_si
 
 
 def convert_arg_line_to_args(arg_line):
@@ -685,6 +691,27 @@ if __name__ == "__main__":
         default=4,
         type=int,
         help="Number of points to sample per line",
+    )
+
+    parser.add_argument(
+        "--filenames_file_vp",
+        default="./train_test_inputs/train_vp.npy",
+        type=str,
+        help="vanishing point filenames",
+    )
+
+    parser.add_argument(
+        "--vp_data_dir",
+        default="./data",
+        type=str,
+        help="vanishing point csv data dir",
+    )
+
+    parser.add_argument(
+        "--mat_file_path",
+        default="../dataset/nyu_depth_v2/nyu_depth_v2_labeled.mat",
+        type=str,
+        help="labelled matlab file",
     )
 
     if sys.argv.__len__() >= 2:

@@ -6,7 +6,7 @@
 --final_div_factor 100
 --epochs 35
 --workers 11
---name UnetAdaptiveBins_w_seg_1_epoch_35
+--name UnetAdaptiveBins_w_vp
 --n_bins 256
 --norm linear
 --w_chamfer 0.1
@@ -29,5 +29,4 @@
 --eigen_crop
 --filenames_file_vp ./train_test_inputs/train_vp.npy
 --vp_data_dir ./data
---seg_classes 41
 --mat_file_path ../dataset/nyu_depth_v2/nyu_depth_v2_labeled.mat

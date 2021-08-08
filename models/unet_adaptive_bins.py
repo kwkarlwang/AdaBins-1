@@ -53,12 +53,6 @@ class DecoderBN(nn.Module):
                                kernel_size=1,
                                stride=1,
                                padding=1)
-        self.conv2_seg = nn.Conv2d(features // 8,
-                                   features // 8,
-                                   kernel_size=1,
-                                   stride=1,
-                                   padding=1)
-
         self.up1 = UpSampleBN(skip_input=features // 1 + 112 + 64,
                               output_features=features // 2)
         self.up2 = UpSampleBN(skip_input=features // 2 + 40 + 24,
@@ -253,20 +247,6 @@ class UnetAdaptiveBins(nn.Module):
         pred = torch.sum(out * centers, dim=1, keepdim=True)
 
         return bin_edges, pred
-
-    def freeze_seg(self):
-        d = self.decoder
-        freeze_list = [d.conv2_seg, d.classifier]
-        for m in freeze_list:
-            for p in m.parameters():
-                p.requires_grad = False
-
-    def unfreeze_seg(self):
-        d = self.decoder
-        freeze_list = [d.conv2_seg, d.classifier]
-        for m in freeze_list:
-            for p in m.parameters():
-                p.requires_grad = True
 
     def get_1x_lr_params(self):  # lr/10 learning rate
         return self.encoder.parameters()

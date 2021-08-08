@@ -72,15 +72,6 @@ for idx in data['idx']:
         # print(p)
         # print(p.shape)
 
-# %%
-import matplotlib.pyplot as plt
-
-plt.plot([1, 2, 3])
-print('hi')
-#%%
-print("a")
-#%%
-print("a")
 #%%
 #%%
 # import torch
