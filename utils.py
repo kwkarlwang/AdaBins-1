@@ -36,17 +36,7 @@ class VP:
         x1, y1, x2, y2 = (lines[:, 0], lines[:, 1], lines[:, 2], lines[:, 3])
         depth1, depth2 = pred[y1, x1], pred[y2, x2]
         depth1_r, depth2_r = depth[y1, x1], depth[y2, x2]
-        print("lines")
-        print(lines.dtype, lines.shape)
-        print(lines)
-        ones = torch.ones(len(lines)).to(self.device)
-        print("ones")
-        print(ones.dtype, ones.shape)
-        print(ones)
-
-        print("Kinv")
-        print(Kinv.dtype, Kinv.shape)
-        print(Kinv)
+        ones = torch.ones(lines.shape[0]).to(self.device)
 
         # 3xn
         u = Kinv @ torch.vstack((lines[:, 0:2].T, ones))
@@ -60,7 +50,7 @@ class VP:
         u3d_r = (depth1_r * u).T
         v3d_r = (depth2_r * v).T
         vd_repeat = vd[None, :].repeat(
-            (len(lines), 1)).to(self.device).to(torch.float32)
+            (lines.shape[0], 1)).to(self.device).to(torch.float32)
         loss = torch.norm(torch.cross((u3d - v3d), vd_repeat, dim=1))
         loss_r = torch.norm(torch.cross((u3d_r - v3d_r), vd_repeat, dim=1))
 
@@ -68,7 +58,7 @@ class VP:
         invalid_loss = loss < loss_r
         loss[invalid_loss] = 0
         self.loss += loss.sum()
-        self.count += len(lines) - invalid_loss.sum()
+        self.count += lines.shape[0] - invalid_loss.sum()
 
     def compute(self):
         return self.loss / self.count
