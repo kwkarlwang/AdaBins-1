@@ -82,6 +82,7 @@ def main_worker(gpu, ngpus_per_node, args):
         max_val=args.max_depth,
         norm=args.norm,
     )
+    print("FINISH BUILDING")
 
     ################################################################################################
 
@@ -769,5 +770,6 @@ if __name__ == "__main__":
                  args=(ngpus_per_node, args))
     else:
         if ngpus_per_node == 1:
+            print("SET GPU 0")
             args.gpu = 0
         main_worker(args.gpu, ngpus_per_node, args)
