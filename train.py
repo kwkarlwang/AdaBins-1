@@ -313,6 +313,8 @@ def train(
                         vd = vds[j]
                         lines = torch.tensor(lines).to(device)
                         sample_lines = vp.sample_points(lines, args.num_points)
+                        print(sample_lines.dtype, sample_lines.device,
+                              sample_lines.shape)
                         vp.update(sample_lines, Kinv, pred[i], vd, depth[i])
 
                 vp_loss = vp.compute()
