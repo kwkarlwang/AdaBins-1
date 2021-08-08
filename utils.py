@@ -36,11 +36,21 @@ class VP:
         x1, y1, x2, y2 = (lines[:, 0], lines[:, 1], lines[:, 2], lines[:, 3])
         depth1, depth2 = pred[y1, x1], pred[y2, x2]
         depth1_r, depth2_r = depth[y1, x1], depth[y2, x2]
+        print("lines")
+        print(lines.dtype, lines.shape)
+        print(lines)
+        ones = torch.ones(len(lines)).to(self.device)
+        print("ones")
+        print(ones.dtype, ones.shape)
+        print(ones)
+
+        print("Kinv")
+        print(Kinv.dtype, Kinv.shape)
+        print(Kinv)
+
         # 3xn
-        u = Kinv @ torch.vstack(
-            (lines[:, 0:2].T, torch.ones(len(lines)).to(self.device)))
-        v = Kinv @ torch.vstack(
-            (lines[:, 2:4].T, torch.ones(len(lines)).to(self.device)))
+        u = Kinv @ torch.vstack((lines[:, 0:2].T, ones))
+        v = Kinv @ torch.vstack((lines[:, 2:4].T, ones))
 
         # nx3
         u3d = (depth1 * u).T
