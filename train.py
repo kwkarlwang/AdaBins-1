@@ -304,7 +304,7 @@ def train(
                 idxs = b["idx"].to(device)
                 for i, idx in enumerate(idxs):
                     sample = train_vp_dataset[idx]
-                    lines_set = sample['labelled_lines']
+                    lines_set = sample['labelled_lines'].to(device)
                     vds = torch.tensor(sample['VDs']).to(device)
                     # each i correspond to a vanshing direction
                     for j, line in enumerate(lines_set):
