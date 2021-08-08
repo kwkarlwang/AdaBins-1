@@ -29,7 +29,7 @@ class VP:
         t2 = torch.rand((num_points, len(lines), 1)).to(self.device)
         start = torch.round(x1 + t1 * direction).to(torch.long)
         end = torch.round(x1 + t2 * direction).to(torch.long)
-        return torch.dstack((start, end)).reshape(-1, 4)
+        return torch.dstack((start, end)).reshape(-1, 4).to(self.device)
 
     def update(self, lines: torch.Tensor, Kinv: torch.Tensor,
                pred: torch.Tensor, vd: torch.Tensor, depth: torch.Tensor):
