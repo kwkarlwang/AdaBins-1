@@ -148,11 +148,9 @@ def train(
 ):
     global PROJECT
     if device is None:
-        device = torch.device('cpu')
         device = (torch.device("cuda") if torch.cuda.is_available() else
                   torch.device("cpu"))  # type: ignore
 
-    device = torch.device('cpu')
     ###################################### Logging setup #########################################
     print(f"Training {experiment_name}")
 
