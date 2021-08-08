@@ -37,8 +37,10 @@ class VP:
         depth1, depth2 = pred[y1, x1], pred[y2, x2]
         depth1_r, depth2_r = depth[y1, x1], depth[y2, x2]
         # 3xn
-        u = Kinv @ torch.vstack((lines[:, 0:2].T, torch.ones(len(lines))))
-        v = Kinv @ torch.vstack((lines[:, 2:4].T, torch.ones(len(lines))))
+        u = Kinv @ torch.vstack(
+            (lines[:, 0:2].T, torch.ones(len(lines)).to(self.device)))
+        v = Kinv @ torch.vstack(
+            (lines[:, 2:4].T, torch.ones(len(lines)).to(self.device)))
 
         # nx3
         u3d = (depth1 * u).T
@@ -47,7 +49,8 @@ class VP:
 
         u3d_r = (depth1_r * u).T
         v3d_r = (depth2_r * v).T
-        vd_repeat = vd[None, :].repeat((len(lines), 1)).to(torch.float32)
+        vd_repeat = vd[None, :].repeat(
+            (len(lines), 1)).to(self.device).to(torch.float32)
         loss = torch.norm(torch.cross((u3d - v3d), vd_repeat, dim=1))
         loss_r = torch.norm(torch.cross((u3d_r - v3d_r), vd_repeat, dim=1))
 
