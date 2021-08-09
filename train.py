@@ -174,7 +174,7 @@ def train(
         )
         # wandb.watch(model)
     ################################################################################################
-    test_loader = DepthDataLoader(args, "online_eval_seg").data
+    test_loader = DepthDataLoader(args, "online_eval").data
     train_loader = DepthDataLoader(args, "train").data
     # train_seg_loader = DepthDataLoader(args, "train_seg").data
     DDL = DepthDataLoader(args, 'train_vp')
@@ -404,9 +404,9 @@ def validate(args,
                       if is_rank_zero(args) else test_loader):
             img = batch["image"].to(device)
             depth = batch["depth"].to(device)
-            if "has_valid_depth" in batch:
-                if not batch["has_valid_depth"]:
-                    continue
+            # if "has_valid_depth" in batch:
+            #     if not batch["has_valid_depth"]:
+            #         continue
             depth = depth.squeeze().unsqueeze(0).unsqueeze(0)
             bins, pred = model(img)
 
