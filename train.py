@@ -420,6 +420,7 @@ def validate(args,
             #         continue
             depth = depth.squeeze().unsqueeze(0).unsqueeze(0)
             bins, pred = model(img)
+            print(pred)
 
             pred = pred.to(device)
 
