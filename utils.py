@@ -34,11 +34,6 @@ class VP:
     def update(self, lines: torch.Tensor, Kinv: torch.Tensor,
                pred: torch.Tensor, vd: torch.Tensor, depth: torch.Tensor):
         x1, y1, x2, y2 = (lines[:, 0], lines[:, 1], lines[:, 2], lines[:, 3])
-        print(x1.device)
-        print(pred.device)
-        print(depth.device)
-        print(pred.shape)
-        print(depth.shape)
         depth1, depth2 = pred[y1, x1], pred[y2, x2]
         depth1_r, depth2_r = depth[y1, x1], depth[y2, x2]
         ones = torch.ones((lines.shape[0], )).to(self.device)
