@@ -303,6 +303,10 @@ def train(
             loss = l_dense + args.w_chamfer * l_chamfer
             vp = VP(device)
             if has_vp:
+                pred = nn.functional.interpolate(pred,
+                                                 depth.shape[-2:],
+                                                 mode="bilinear",
+                                                 align_corners=True)
                 idxs = b["idx"].to(device)
                 for i, idx in enumerate(idxs):
                     sample = train_vp_dataset[idx]
