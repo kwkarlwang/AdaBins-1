@@ -420,7 +420,7 @@ def validate(args,
             #         continue
             depth = depth.squeeze().unsqueeze(0).unsqueeze(0)
             bins, pred = model(img)
-            print(pred)
+            print(pred.shape)
 
             pred = pred.to(device)
 
@@ -432,10 +432,11 @@ def validate(args,
                                      interpolate=True)
             val_si.append(l_dense.item())
 
-            pred = nn.functional.interpolate(pred,
-                                             depth.shape[-2:],
-                                             mode="bilinear",
-                                             align_corners=True)
+            pred = nn.functional.interpolate(
+                pred,  # type: ignore
+                depth.shape[-2:],
+                mode="bilinear",
+                align_corners=True)
 
             pred = pred.squeeze().cpu().numpy()
             pred[pred < args.min_depth_eval] = args.min_depth_eval
@@ -495,7 +496,7 @@ if __name__ == "__main__":
         fromfile_prefix_chars="@",
         conflict_handler="resolve",
     )
-    parser.convert_arg_line_to_args = convert_arg_line_to_args
+    parser.convert_arg_line_to_args = convert_arg_line_to_args  # type: ignore
     parser.add_argument("--epochs",
                         default=25,
                         type=int,
