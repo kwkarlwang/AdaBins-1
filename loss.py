@@ -11,11 +11,16 @@ class SILogLoss(nn.Module):  # Main loss function used in AdaBins paper
 
     def forward(self, input, target, mask=None, interpolate=True):
         if interpolate:
-            input = nn.functional.interpolate(
-                input, target.shape[-2:], mode="bilinear", align_corners=True
-            )
+            input = nn.functional.interpolate(input,
+                                              target.shape[-2:],
+                                              mode="bilinear",
+                                              align_corners=True)
 
         if mask is not None:
+            print("inside silogloss")
+            print(mask.shape)
+            print(input.shape)
+            print(target.shape)
             input = input[mask]
             target = target[mask]
         g = torch.log(input) - torch.log(target)
@@ -27,7 +32,8 @@ class SILogLoss(nn.Module):  # Main loss function used in AdaBins paper
         return 10 * torch.sqrt(Dg)
 
 
-class BinsChamferLoss(nn.Module):  # Bin centers regularizer used in AdaBins paper
+class BinsChamferLoss(nn.Module
+                      ):  # Bin centers regularizer used in AdaBins paper
     def __init__(self):
         super().__init__()
         self.name = "ChamferLoss"
@@ -41,16 +47,12 @@ class BinsChamferLoss(nn.Module):  # Bin centers regularizer used in AdaBins pap
         target_points = target_depth_maps.flatten(1)  # n, hwc
         mask = target_points.ge(1e-3)  # only valid ground truth points
         target_points = [p[m] for p, m in zip(target_points, mask)]
-        target_lengths = (
-            torch.Tensor([len(t) for t in target_points])
-            .long()
-            .to(target_depth_maps.device)
-        )
-        target_points = pad_sequence(target_points, batch_first=True).unsqueeze(
-            2
-        )  # .shape = n, T, 1
+        target_lengths = (torch.Tensor([len(t) for t in target_points
+                                        ]).long().to(target_depth_maps.device))
+        target_points = pad_sequence(
+            target_points, batch_first=True).unsqueeze(2)  # .shape = n, T, 1
 
-        loss, _ = chamfer_distance(
-            x=input_points, y=target_points, y_lengths=target_lengths
-        )
+        loss, _ = chamfer_distance(x=input_points,
+                                   y=target_points,
+                                   y_lengths=target_lengths)
         return loss

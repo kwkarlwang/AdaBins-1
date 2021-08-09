@@ -415,6 +415,7 @@ def validate(args,
                       if is_rank_zero(args) else test_loader):
             img = batch["image"].to(device)
             depth = batch["depth"].to(device)
+            print(batch)
             # if "has_valid_depth" in batch:
             #     if not batch["has_valid_depth"]:
             #         continue
