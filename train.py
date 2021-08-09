@@ -253,9 +253,8 @@ def train(
 
             #################### random select a loader ########################
             has_vp = False
-            if True or train_loader_is_done or (train_vp_loader_is_done
-                                                == False
-                                                and random.random() < 0.05):
+            if train_loader_is_done or (train_vp_loader_is_done == False
+                                        and random.random() < 0.05):
                 batch = next(train_vp_loader_it, None)
                 if batch is not None:
                     has_vp = True
