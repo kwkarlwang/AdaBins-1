@@ -237,6 +237,17 @@ def train(
 
     for epoch in range(args.epoch, epochs):
 
+        model.eval()
+        metrics, val_si = validate(
+            args,
+            model,
+            test_loader,
+            criterion_ueff,
+            epoch,
+            epochs,
+            device,
+        )
+
         ################################# Train loop ##########################################################
         if should_log:
             wandb.log({"Epoch": epoch}, step=step)
