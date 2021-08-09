@@ -17,10 +17,6 @@ class SILogLoss(nn.Module):  # Main loss function used in AdaBins paper
                                               align_corners=True)
 
         if mask is not None:
-            print("inside silogloss")
-            print(mask.shape)
-            print(input.shape)
-            print(target.shape)
             input = input[mask]
             target = target[mask]
         g = torch.log(input) - torch.log(target)

@@ -9,7 +9,10 @@ import numpy as np
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
-import torch.nn as nn
+import torch.nn
+import torch.hub
+import torch.nn.functional
+import torch.cuda
 import torch.optim as optim
 import torch.utils.data.distributed
 import wandb
@@ -313,10 +316,10 @@ def train(
             loss = l_dense + args.w_chamfer * l_chamfer
             vp = VP(device)
             if has_vp:
-                pred = nn.functional.interpolate(pred,
-                                                 depth.shape[-2:],
-                                                 mode="bilinear",
-                                                 align_corners=True)
+                pred = torch.nn.functional.interpolate(pred,
+                                                       depth.shape[-2:],
+                                                       mode="bilinear",
+                                                       align_corners=True)
                 idxs = b["idx"].to(device)
                 for i, idx in enumerate(idxs):
                     sample = train_vp_dataset[idx]
@@ -415,13 +418,13 @@ def validate(args,
                       if is_rank_zero(args) else test_loader):
             img = batch["image"].to(device)
             depth = batch["depth"].to(device)
-            print(batch)
+            # print(batch)
             # if "has_valid_depth" in batch:
             #     if not batch["has_valid_depth"]:
             #         continue
             depth = depth.squeeze().unsqueeze(0).unsqueeze(0)
             bins, pred = model(img)
-            print(pred.shape)
+            # print(pred.shape)
 
             pred = pred.to(device)
 
@@ -433,7 +436,7 @@ def validate(args,
                                      interpolate=True)
             val_si.append(l_dense.item())
 
-            pred = nn.functional.interpolate(
+            pred = torch.nn.functional.interpolate(
                 pred,  # type: ignore
                 depth.shape[-2:],
                 mode="bilinear",

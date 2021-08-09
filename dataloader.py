@@ -26,7 +26,7 @@ def preprocessing_transforms(mode):
 
 class DepthDataLoader(object):
     def __init__(self, args, mode):
-        if mode == "train" or mode == "train_seg" or "train_vp":
+        if mode == "train" or mode == "train_seg" or mode == "train_vp":
             if mode == "train_vp":
                 self.training_samples = DataLoadPreprocessVP(args)
             else:
