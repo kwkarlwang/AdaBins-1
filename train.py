@@ -267,8 +267,9 @@ def train(
 
             #################### random select a loader ########################
             has_vp = False
-            if train_loader_is_done or (train_vp_loader_is_done == False
-                                        and random.random() < 0.05):
+            if True or train_loader_is_done or (train_vp_loader_is_done
+                                                == False
+                                                and random.random() < 0.05):
                 batch = next(train_vp_loader_it, None)
                 if batch is not None:
                     has_vp = True
@@ -344,6 +345,8 @@ def train(
                           step=step)
                 wandb.log({f"Train/{criterion_bins.name}": l_chamfer.item()},
                           step=step)
+                if has_vp:
+                    wandb.log({f"Train/VPLoss": vp_loss}, step=step)
 
             step += 1
             scheduler.step()

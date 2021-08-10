@@ -58,7 +58,7 @@ class VP:
 
         # only calculate back prop high loss
         invalid_loss = loss < loss_r
-        loss[invalid_loss] = 0
+        loss[invalid_loss] *= 0
         self.loss += loss.sum()
         self.count += lines.shape[0] - invalid_loss.sum()
         self.total_count += len(lines)
