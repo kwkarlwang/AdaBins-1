@@ -15,6 +15,7 @@ class VP:
         self.count = 0
         self.loss = 0
         self.device = device
+        self.total_count = 0
 
     def sample_points(
         self,
@@ -60,8 +61,11 @@ class VP:
         loss[invalid_loss] = 0
         self.loss += loss.sum()
         self.count += lines.shape[0] - invalid_loss.sum()
+        self.total_count += len(lines)
 
     def compute(self):
+        print(f'Total count: {self.total_count}')
+        print(f'Valid count: {self.count}')
         return self.loss / self.count
 
 
@@ -86,7 +90,7 @@ def denormalize(x, device="cpu"):
 
 class RunningAverageDict:
     def __init__(self):
-        self._dict = None
+        self._dict: dict = None  # type: ignore
 
     def update(self, new_dict):
         if self._dict is None:
