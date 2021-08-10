@@ -21,8 +21,8 @@ class VP:
         lines: torch.Tensor,
         num_points: int = 2,
     ):
-        x1 = lines[:, 0:2]
-        x2 = lines[:, 2:4]
+        x1 = lines[:, 0:2]  # startpoint
+        x2 = lines[:, 2:4]  # endpoint
 
         direction = x2 - x1
         t1 = torch.rand((num_points, lines.shape[0], 1)).to(self.device)
