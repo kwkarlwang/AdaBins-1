@@ -420,13 +420,11 @@ def validate(args,
                       if is_rank_zero(args) else test_loader):
             img = batch["image"].to(device)
             depth = batch["depth"].to(device)
-            # print(batch)
-            # if "has_valid_depth" in batch:
-            #     if not batch["has_valid_depth"]:
-            #         continue
+            if "has_valid_depth" in batch:
+                if not batch["has_valid_depth"]:
+                    continue
             depth = depth.squeeze().unsqueeze(0).unsqueeze(0)
             bins, pred = model(img)
-            # print(pred.shape)
 
             pred = pred.to(device)
 

@@ -98,7 +98,7 @@ class DataLoadPreprocessVP(Dataset):
         )
 
     def __getitem__(self, idx):
-        d = self.dataset[idx]
+        d = self.dataset[self.filenames[idx]]
         image_rgb = d['image']
         depth = d['depth']
         # lines = d['labelled_lines']
