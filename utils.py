@@ -57,15 +57,13 @@ class VP:
         loss_r = torch.norm(torch.cross((u3d_r - v3d_r), vd_repeat, dim=1))
 
         # only calculate back prop high loss
-        invalid_loss = loss < loss_r | loss_r > 3
+        invalid_loss = (loss < loss_r) | (loss_r > 3.0)
         loss[invalid_loss] *= 0
         self.loss += loss.sum()
         self.count += lines.shape[0] - invalid_loss.sum()
         self.total_count += len(lines)
 
     def compute(self):
-        print(f'Total count: {self.total_count}')
-        print(f'Valid count: {self.count}')
         return self.loss / self.count
 
 
