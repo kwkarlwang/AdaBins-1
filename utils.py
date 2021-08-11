@@ -26,8 +26,8 @@ class VP:
         x2 = lines[:, 2:4]  # endpoint
 
         direction = x2 - x1
-        t1 = torch.rand((num_points, lines.shape[0], 1)).to(self.device)
-        t2 = torch.rand((num_points, lines.shape[0], 1)).to(self.device)
+        t1 = torch.rand((num_points, len(lines), 1)).to(self.device)
+        t2 = torch.rand((num_points, len(lines), 1)).to(self.device)
         start = torch.round(x1 + t1 * direction).to(torch.long)
         end = torch.round(x1 + t2 * direction).to(torch.long)
         return torch.dstack((start, end)).reshape(-1, 4).to(self.device)
@@ -38,7 +38,7 @@ class VP:
         depth1, depth2 = pred[y1, x1], pred[y2, x2]
         depth1_r, depth2_r = depth[y1, x1], depth[y2, x2]
 
-        ones = torch.ones(lines.shape[0]).to(self.device)
+        ones = torch.ones(len(lines)).to(self.device)
 
         # 3xn
         u = Kinv @ torch.vstack((lines[:, 0:2].T, ones))
@@ -52,7 +52,7 @@ class VP:
         u3d_r = (depth1_r * u).T
         v3d_r = (depth2_r * v).T
         vd_repeat = vd[None, :].repeat(
-            (lines.shape[0], 1)).to(self.device).to(torch.float32)
+            (len(lines), 1)).to(self.device).to(torch.float32)
         loss = torch.norm(torch.cross((u3d - v3d), vd_repeat, dim=1))
         loss_r = torch.norm(torch.cross((u3d_r - v3d_r), vd_repeat, dim=1))
 
@@ -60,7 +60,7 @@ class VP:
         invalid_loss = (loss < loss_r) | (loss_r > 2.0)
         loss[invalid_loss] *= 0
         self.loss += loss.sum()
-        self.count += lines.shape[0] - invalid_loss.sum()
+        self.count += len(lines) - invalid_loss.sum()
         self.total_count += len(lines)
 
     def compute(self):

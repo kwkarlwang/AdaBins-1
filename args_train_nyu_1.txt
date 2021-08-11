@@ -30,5 +30,5 @@
 --filenames_file_vp ./train_test_inputs/train_vp.npy
 --vp_data_dir ./data
 --mat_file_path ../dataset/nyu_depth_v2/nyu_depth_v2_labeled.mat
---w_vp 1.0
---num_points 32
+--w_vp 0.5
+--num_points 4
