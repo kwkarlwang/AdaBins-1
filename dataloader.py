@@ -86,7 +86,7 @@ def remove_leading_slash(s):
 class DataLoadPreprocessVP(Dataset):
     def __init__(self, args):
         self.args = args
-        self.filenames = np.load(args.filenames_file_vp).astype(np.int32)
+        self.filenames = np.load(args.filenames_file_vp)
         self.to_tensor = preprocessing_transforms("train_vp")
         self.dataset = NYUVP(
             data_dir_path=
@@ -98,7 +98,7 @@ class DataLoadPreprocessVP(Dataset):
         )
 
     def __getitem__(self, idx):
-        d = self.dataset[self.filenames[idx]]
+        d = self.dataset[int(self.filenames[int(idx)])]
         image_rgb = d['image']
         depth = d['depth']
         # lines = d['labelled_lines']
