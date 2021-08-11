@@ -168,6 +168,7 @@ def train(
         if args.dataset != "nyu":
             PROJECT = PROJECT + f"-{args.dataset}"
         wandb.init(
+            settings=wandb.Settings(start_method='fork'),
             project=PROJECT,
             name=name,
             config=args,
