@@ -9,3 +9,4 @@ checkpoints/
 pretrained/
 
 nyu_depth_v2_labeled.mat
+*.swp
