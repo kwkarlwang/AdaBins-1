@@ -6,7 +6,7 @@
 --final_div_factor 100
 --epochs 50
 --workers 11
---name W_VP_8_B12
+--name W_VP_PLATEAU
 --n_bins 256
 --norm linear
 --w_chamfer 0.1
@@ -20,7 +20,7 @@
 --max_depth 10
 --do_random_rotate
 --degree 2.5
---validate_every 2000
+--validate_every 500
 --data_path_eval ../dataset/nyu_depth_v2/official_splits/test/
 --gt_path_eval ../dataset/nyu_depth_v2/official_splits/test/
 --filenames_file_eval ./train_test_inputs/nyudepthv2_test_files_with_gt.txt
