@@ -1,5 +1,4 @@
 import argparse
-from nyu import NYUVP
 import os
 import sys
 import uuid
@@ -181,11 +180,6 @@ def train(
     ################################################################################################
     test_loader = DepthDataLoader(args, "online_eval").data
     train_loader = DepthDataLoader(args, "train").data
-    # train_seg_loader = DepthDataLoader(args, "train_seg").data
-    DDL = DepthDataLoader(args, 'train_vp')
-    train_vp_loader = DDL.data
-    train_vp_dataset: NYUVP = DDL.training_samples.dataset  # type:ignore
-    Kinv = torch.tensor(train_vp_dataset.Kinv).to(torch.float32).to(device)
 
     ###################################### losses ##############################################
     criterion_ueff = SILogLoss()
@@ -218,12 +212,12 @@ def train(
         optimizer.load_state_dict(optimizer_state_dict)
     ################################################################################################
     # some globals
-    iters = len(train_loader) + len(train_vp_loader)
+    iters = len(train_loader)
     step = args.epoch * iters
     best_loss = np.inf
 
     ###################################### Scheduler ###############################################
-    steps_per_epoch = len(train_loader) + len(train_vp_loader)
+    steps_per_epoch = len(train_loader)
 
     # scheduler = optim.lr_scheduler.OneCycleLR(  # type: ignore
     #     optimizer,
@@ -265,50 +259,19 @@ def train(
         ################################# Train loop ##########################################################
         if should_log:
             wandb.log({"Epoch": epoch}, step=step)
-        train_loader_it = iter(train_loader)
-        train_loader_is_done = False
-        train_vp_loader_it = iter(train_vp_loader)
-        train_vp_loader_is_done = False
 
-        for _ in (tqdm(
-                range(steps_per_epoch),
+        for batch in (tqdm(
+                train_loader,
                 desc=f"Epoch: {epoch + 1}/{epochs}. Loop: Train",
                 total=steps_per_epoch,
-        ) if is_rank_zero(args) else range(steps_per_epoch)):
-
-            #################### random select a loader ########################
-            has_vp = False
-            if train_loader_is_done or (train_vp_loader_is_done == False
-                                        and random.random() < 0.05):
-                batch = next(train_vp_loader_it, None)
-                if batch is not None:
-                    has_vp = True
-                else:
-                    train_vp_loader_is_done = True
-                    batch = next(train_loader_it, None)
-                    if batch is None:
-                        train_loader_is_done = True
-            else:
-                batch = next(train_loader_it, None)
-                if batch is None:
-                    train_loader_is_done = True
-                    batch = next(train_vp_loader_it, None)
-                    if batch is not None:
-                        has_vp = True
-                    else:
-                        train_vp_loader_is_done = True
-
-            if train_loader_is_done and train_vp_loader_is_done:
-                break
-            ###########################################################
+        ) if is_rank_zero(args) else train_loader):
 
             optimizer.zero_grad()
-            b: dict = batch  # type:ignore
 
-            img: torch.Tensor = b["image"].to(device)
-            depth: torch.Tensor = b["depth"].to(device)
-            if "has_valid_depth" in b:
-                if not b["has_valid_depth"]:
+            img: torch.Tensor = batch["image"].to(device)
+            depth: torch.Tensor = batch["depth"].to(device)
+            if "has_valid_depth" in batch:
+                if not batch["has_valid_depth"]:
                     continue
 
             bin_edges, pred = model(img)
@@ -325,30 +288,6 @@ def train(
                 l_chamfer = torch.Tensor([0]).to(img.device)
 
             loss = l_dense + args.w_chamfer * l_chamfer
-            vp = VP(device)
-            if has_vp:
-                pred = torch.nn.functional.interpolate(pred,
-                                                       depth.shape[-2:],
-                                                       mode="bilinear",
-                                                       align_corners=True)
-                idxs = b["idx"].to(device)
-                for i, idx in enumerate(idxs):
-                    sample = train_vp_dataset[idx]
-                    lines_set = sample['labelled_lines']
-                    vds = torch.tensor(sample['VDs']).to(device)
-                    # each i correspond to a vanshing direction
-                    for j, lines in enumerate(lines_set):
-                        vd = vds[j]
-                        lines = torch.tensor(lines).to(device)
-                        sample_lines = vp.sample_points(lines, args.num_points)
-                        vp.update(sample_lines, Kinv, pred[i].squeeze(), vd,
-                                  depth[i].squeeze())
-
-                vp_loss = vp.compute()
-                if should_log:
-                    wandb.log({f"Train/VPLoss": vp_loss}, step=step)
-                loss += args.w_vp * vp_loss
-
             loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), 0.1)  # optional
             optimizer.step()
@@ -448,8 +387,8 @@ def validate(args,
                                      interpolate=True)
             val_si.append(l_dense.item())
 
-            pred = torch.nn.functional.interpolate(
-                pred,  # type: ignore
+            pred = torch.nn.functional.interpolate(  # type: ignore
+                pred,
                 depth.shape[-2:],
                 mode="bilinear",
                 align_corners=True)

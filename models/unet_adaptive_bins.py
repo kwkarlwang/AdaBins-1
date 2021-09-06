@@ -171,10 +171,12 @@ class UnetAdaptiveBins(nn.Module):
         basemodel_name = "tf_efficientnet_b5_ap"
 
         print("Loading base model ()...".format(basemodel_name), end="")
+        # NOTE: 4 channels input
         basemodel = torch.hub.load(  # type: ignore
             "rwightman/gen-efficientnet-pytorch",
             basemodel_name,
-            pretrained=True)
+            pretrained=True,
+            in_chans=4)
         print("Done.")
 
         # Remove last layer
