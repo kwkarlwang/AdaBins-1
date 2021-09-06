@@ -14,6 +14,7 @@ import torch.hub
 import torch.nn.functional
 import torch.cuda
 import torch.optim as optim
+import torch.optim.lr_scheduler
 import torch.utils.data.distributed
 import wandb
 from tqdm import tqdm
@@ -223,18 +224,27 @@ def train(
 
     ###################################### Scheduler ###############################################
     steps_per_epoch = len(train_loader) + len(train_vp_loader)
-    scheduler = optim.lr_scheduler.OneCycleLR(  # type: ignore
+
+    # scheduler = optim.lr_scheduler.OneCycleLR(  # type: ignore
+    #     optimizer,
+    #     lr,
+    #     epochs=epochs,
+    #     steps_per_epoch=steps_per_epoch,
+    #     cycle_momentum=True,
+    #     base_momentum=0.85,
+    #     max_momentum=0.95,
+    #     last_epoch=args.last_epoch,
+    #     div_factor=args.div_factor,
+    #     final_div_factor=args.final_div_factor,
+    # )
+
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
-        lr,
-        epochs=epochs,
-        steps_per_epoch=steps_per_epoch,
-        cycle_momentum=True,
-        base_momentum=0.85,
-        max_momentum=0.95,
-        last_epoch=args.last_epoch,
-        div_factor=args.div_factor,
-        final_div_factor=args.final_div_factor,
+        patience=10,
+        min_lr=1e-5,
+        verbose=True,
     )
+
     if args.resume != "" and scheduler is not None:
         scheduler.step(args.epoch + 1)
     ################################################################################################
@@ -349,8 +359,6 @@ def train(
                           step=step)
 
             step += 1
-            scheduler.step()
-
             ########################################################################################################
 
             if should_write and step % args.validate_every == 0:
@@ -396,6 +404,9 @@ def train(
                         root=os.path.join(root, "checkpoints"),
                     )
                     best_loss = metrics["abs_rel"]
+
+                scheduler.step(metrics["abs_rel"])
+
                 model.train()
                 #################################################################################################
 
