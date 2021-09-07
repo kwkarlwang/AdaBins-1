@@ -50,7 +50,10 @@ class RelDepth:
                     rdm[y, x] = mean_depth
             else:
                 flatten_depth = depth[y, x].flatten()
-                rdm[y, x] = np.median(flatten_depth[flatten_depth > 0])
+                mask = flatten_depth > 0
+                if mask.sum() != 0:
+                    rdm[y, x] = np.median(flatten_depth[mask])
+                    print(np.median(flatten_depth[flatten_depth > 0]))
 
         # 4.
         rdm = rdm / np.max(rdm)

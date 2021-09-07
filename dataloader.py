@@ -114,7 +114,8 @@ class DataLoadPreprocess(Dataset):
             seg_gt = seg_npz['seg']
             cat_map = seg_npz['map']
             rel_depth = Image.fromarray(
-                relative_depth.validate(seg_gt, cat_map, np.asarray(depth_gt)))
+                relative_depth.validate(seg_gt, cat_map,
+                                        np.asarray(depth_gt) / 256.0))
 
             if self.args.do_kb_crop is True:
                 height = image.height
@@ -202,7 +203,8 @@ class DataLoadPreprocess(Dataset):
                 if has_valid_depth:
                     seg_gt, cat_map = seg_npz['seg'], seg_npz['map']
                     rel_depth = relative_depth.validate(
-                        seg_gt, cat_map, np.asarray(depth_gt))
+                        seg_gt, cat_map,
+                        np.asarray(depth_gt) / 256.0)
                     depth_gt = np.asarray(depth_gt, dtype=np.float32)
                     depth_gt = np.expand_dims(depth_gt, axis=2)
                     rel_depth = np.expand_dims(rel_depth, axis=2)
