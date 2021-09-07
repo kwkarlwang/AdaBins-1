@@ -8,63 +8,46 @@ import numpy as np
 import torch
 import torch.nn
 from PIL import Image
+from skimage.measure import label, regionprops
 
 
-class VP:
-    def __init__(self, device='cpu') -> None:
-        self.count = 0
-        self.loss = 0
-        self.device = device
-        self.total_count = 0
+class RelDepth:
+    def __init__(self, target_trainId=[5, 11, 12, 13, 14, 15]) -> None:
+        self.target_trainId = target_trainId
 
-    def sample_points(
-        self,
-        lines: torch.Tensor,
-        num_points: int = 2,
-    ):
-        x1 = lines[:, 0:2]  # startpoint
-        x2 = lines[:, 2:4]  # endpoint
+    def transform(self, seg_mask: np.ndarray, cat_map: np.ndarray):
+        pass
 
-        direction = x2 - x1
-        t1 = torch.rand((num_points, len(lines), 1)).to(self.device)
-        t2 = torch.rand((num_points, len(lines), 1)).to(self.device)
-        start = torch.round(x1 + t1 * direction).to(torch.long)
-        end = torch.round(x1 + t2 * direction).to(torch.long)
-        return torch.dstack((start, end)).reshape(-1, 4).to(self.device)
+    def validate(self, seg_mask: np.ndarray, cat_map: np.ndarray,
+                 depth: np.ndarray) -> np.ndarray:
 
-    def update(self, lines: torch.Tensor, Kinv: torch.Tensor,
-               pred: torch.Tensor, vd: torch.Tensor, depth: torch.Tensor):
-        x1, y1, x2, y2 = (lines[:, 0], lines[:, 1], lines[:, 2], lines[:, 3])
-        depth1, depth2 = pred[y1, x1], pred[y2, x2]
-        depth1_r, depth2_r = depth[y1, x1], depth[y2, x2]
+        valid_id = []
+        for i in range(len(cat_map)):
+            if cat_map[i] in self.target_trainId:
+                valid_id.append(i)
 
-        ones = torch.ones(len(lines)).to(self.device)
+        for idx, x in np.ndenumerate(seg_mask):
+            if seg_mask[idx] not in valid_id:
+                seg_mask[idx] = 100
+        seg_mask[seg_mask == 0] = 200
+        seg_mask[seg_mask == 100] = 0
+        label_img = label(seg_mask)
+        regions = regionprops(label_img)
+        # 3.
+        rdm = np.zeros_like(seg_mask)
+        for region in regions:
+            mean_depth = 0
+            nnz_cnt = 0
+            y = region.coords[:, 0]
+            x = region.coords[:, 1]
+            nnz_cnt = np.sum(depth[y, x] > 0)
+            if nnz_cnt:
+                mean_depth = np.sum(depth[y, x]) / nnz_cnt
+                rdm[y, x] = mean_depth
 
-        # 3xn
-        u = Kinv @ torch.vstack((lines[:, 0:2].T, ones))
-        v = Kinv @ torch.vstack((lines[:, 2:4].T, ones))
-
-        # nx3
-        u3d = (depth1 * u).T
-        # nx3
-        v3d = (depth2 * v).T
-
-        u3d_r = (depth1_r * u).T
-        v3d_r = (depth2_r * v).T
-        vd_repeat = vd[None, :].repeat(
-            (len(lines), 1)).to(self.device).to(torch.float32)
-        loss = torch.norm(torch.cross((u3d - v3d), vd_repeat, dim=1))
-        loss_r = torch.norm(torch.cross((u3d_r - v3d_r), vd_repeat, dim=1))
-
-        # only calculate back prop high loss
-        invalid_loss = (loss < loss_r) | (loss_r > 2.0)
-        loss[invalid_loss] *= 0
-        self.loss += loss.sum()
-        self.count += len(lines) - invalid_loss.sum()
-        self.total_count += len(lines)
-
-    def compute(self):
-        return self.loss / self.count
+        # 4.
+        rdm = rdm / np.max(rdm)
+        return rdm
 
 
 class RunningAverage:

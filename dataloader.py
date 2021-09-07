@@ -239,6 +239,8 @@ class DataLoadPreprocess(Dataset):
         if self.transform:
             sample = self.transform(sample)
 
+        sample['image'] = torch.cat((sample['image'], sample['rel_depth']),
+                                    dim=0)
         return sample
 
     def rotate_image(self, image, angle, flag=Image.BILINEAR):
