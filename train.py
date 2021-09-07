@@ -508,7 +508,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--validate-every",
         "--validate_every",
-        default=100,
+        default=1000,
         type=int,
         help="validation period",
     )
