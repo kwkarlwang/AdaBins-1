@@ -26,8 +26,6 @@ from loss import SILogLoss, BinsChamferLoss
 from utils import RunningAverage, colorize
 from torch import nn
 
-import random
-
 # os.environ['WANDB_MODE'] = 'dryrun'
 PROJECT = "MDE-AdaBins"
 logging = True if len(sys.argv) <= 2 else False
@@ -235,7 +233,7 @@ def train(
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
         patience=10,
-        min_lr=1e-5,
+        min_lr=1e-6,
         verbose=True,
     )
 
