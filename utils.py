@@ -18,8 +18,11 @@ class RelDepth:
     def transform(self, seg_mask: np.ndarray, cat_map: np.ndarray):
         pass
 
-    def validate(self, seg_mask: np.ndarray, cat_map: np.ndarray,
-                 depth: np.ndarray) -> np.ndarray:
+    def validate(self,
+                 seg_mask: np.ndarray,
+                 cat_map: np.ndarray,
+                 depth: np.ndarray,
+                 use_mean=False) -> np.ndarray:
 
         valid_id = []
         for i in range(len(cat_map)):
@@ -40,10 +43,14 @@ class RelDepth:
             nnz_cnt = 0
             y = region.coords[:, 0]
             x = region.coords[:, 1]
-            nnz_cnt = np.sum(depth[y, x] > 0)
-            if nnz_cnt:
-                mean_depth = np.sum(depth[y, x]) / nnz_cnt
-                rdm[y, x] = mean_depth
+            if use_mean:
+                nnz_cnt = np.sum(depth[y, x] > 0)
+                if nnz_cnt:
+                    mean_depth = np.sum(depth[y, x]) / nnz_cnt
+                    rdm[y, x] = mean_depth
+            else:
+                flatten_depth = depth[y, x].flatten()
+                rdm[y, x] = np.median(flatten_depth[flatten_depth > 0])
 
         # 4.
         rdm = rdm / np.max(rdm)
