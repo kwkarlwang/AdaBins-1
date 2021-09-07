@@ -451,7 +451,7 @@ if __name__ == "__main__":
     )
     parser.convert_arg_line_to_args = convert_arg_line_to_args  # type: ignore
     parser.add_argument("--epochs",
-                        default=25,
+                        default=50,
                         type=int,
                         help="number of total epochs to run")
     parser.add_argument(
