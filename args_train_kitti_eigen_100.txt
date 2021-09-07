@@ -1,6 +1,5 @@
 --bs 12
 --dataset kitti
---distributed
 --lr 0.000357
 --wd 0.1
 --div_factor 25
