@@ -243,8 +243,9 @@ class DataLoadPreprocess(Dataset):
         if self.transform:
             sample = self.transform(sample)
 
-        sample['image'] = torch.cat((sample['image'], sample['rel_depth']),
-                                    dim=0)
+        if "has_valid_depth" not in sample or sample['has_valid_depth']:
+            sample['image'] = torch.cat((sample['image'], sample['rel_depth']),
+                                        dim=0)
         return sample
 
     def rotate_image(self, image, angle, flag=Image.BILINEAR):
@@ -318,10 +319,9 @@ class ToTensor(object):
             return {'image': image, 'focal': focal}
 
         depth = sample['depth']
-        rel_depth = sample['rel_depth']
+        rel_depth = self.to_tensor(sample['rel_depth'])
         if self.mode == 'train':
             depth = self.to_tensor(depth)
-            rel_depth = self.to_tensor(rel_depth)
             return {
                 'image': image,
                 'depth': depth,
