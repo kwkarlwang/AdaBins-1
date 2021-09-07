@@ -11,8 +11,6 @@ from PIL import Image
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 
-relative_depth = RelDepth()
-
 
 def _is_pil_image(img):
     return isinstance(img, Image.Image)
@@ -93,6 +91,8 @@ class DataLoadPreprocess(Dataset):
         self.to_tensor = ToTensor
         self.is_for_online_eval = is_for_online_eval
 
+        self.rel_depth_helper = RelDepth(args)
+
     def __getitem__(self, idx):
         sample_path = self.filenames[idx]
         focal = float(sample_path.split()[2])
@@ -114,8 +114,8 @@ class DataLoadPreprocess(Dataset):
             seg_gt = seg_npz['seg']
             cat_map = seg_npz['map']
             rel_depth = Image.fromarray(
-                relative_depth.validate(seg_gt, cat_map,
-                                        np.asarray(depth_gt) / 256.0))
+                self.rel_depth_helper.validate(seg_gt, cat_map,
+                                               np.asarray(depth_gt) / 256.0))
 
             if self.args.do_kb_crop is True:
                 height = image.height
@@ -202,7 +202,7 @@ class DataLoadPreprocess(Dataset):
 
                 if has_valid_depth:
                     seg_gt, cat_map = seg_npz['seg'], seg_npz['map']
-                    rel_depth = relative_depth.validate(
+                    rel_depth = self.rel_depth_helper.validate(
                         seg_gt, cat_map,
                         np.asarray(depth_gt) / 256.0)
                     depth_gt = np.asarray(depth_gt, dtype=np.float32)

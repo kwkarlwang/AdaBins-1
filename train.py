@@ -23,7 +23,7 @@ import models
 import utils
 from dataloader import DepthDataLoader
 from loss import SILogLoss, BinsChamferLoss
-from utils import RunningAverage, VP, colorize
+from utils import RunningAverage, colorize
 from torch import nn
 
 import random
@@ -686,6 +686,20 @@ if __name__ == "__main__":
         default="../dataset/nyu_depth_v2/nyu_depth_v2_labeled.mat",
         type=str,
         help="labelled matlab file",
+    )
+
+    parser.add_argument(
+        "--scale_coefficient",
+        default=1.0,
+        type=float,
+        help="Scale the relative depth by scale_coefficient",
+    )
+
+    parser.add_argument(
+        "--relative_depth",
+        default=True,
+        type=bool,
+        help="Use either relative depth or ground truth depth",
     )
 
     if sys.argv.__len__() >= 2:

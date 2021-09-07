@@ -13,10 +13,11 @@ from skimage.measure import label, regionprops
 
 class RelDepth:
     def __init__(self,
-                 target_trainId=[5, 11, 12, 13, 14, 15, 16, 17, 18],
-                 scale_output=True) -> None:
+                 args,
+                 target_trainId=[5, 11, 12, 13, 14, 15, 16, 17, 18]) -> None:
         self.target_trainId = target_trainId
-        self.scale_output = scale_output
+        self.relative_depth = args.relative_depth
+        self.scale_coefficient = args.scale_coefficient
 
     def transform(self, seg_mask: np.ndarray, cat_map: np.ndarray):
         pass
@@ -58,8 +59,9 @@ class RelDepth:
                 if mask.sum() != 0:
                     rdm[y, x] = np.median(flatten_depth[mask])
 
-        if self.scale_output and np.max(rdm) != 0:
-            rdm = rdm / np.max(rdm)
+        if self.relative_depth and np.max(rdm) != 0:
+            rdm: np.ndarray = rdm / np.max(rdm)
+        rdm = rdm * self.scale_coefficient
         return rdm
 
 
