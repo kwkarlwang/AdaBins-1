@@ -13,7 +13,7 @@
 --w_chamfer 0.1
 --data_path ../dataset/kitti/raw
 --gt_path ../dataset/kitti/gts
---filenames_file ./train_test_inputs/kitti_eigen_train_files_with_gt.txt
+--filenames_file ./train_test_inputs/kitti_eigen_train_files_with_gt_seg.txt
 --input_height 352
 --input_width 704
 --min_depth 0.001

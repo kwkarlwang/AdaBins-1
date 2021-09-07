@@ -2,6 +2,7 @@
 
 import os
 import random
+from utils import RelDepth
 
 import numpy as np
 import torch
@@ -10,7 +11,7 @@ from PIL import Image
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 
-someFunc = lambda x, y: x + y
+relative_depth = RelDepth()
 
 
 def _is_pil_image(img):
@@ -111,9 +112,9 @@ class DataLoadPreprocess(Dataset):
             depth_gt = Image.open(depth_path)
             seg_npz = np.load(seg_path)
             seg_gt = seg_npz['seg']
-            seg_map = seg_npz['map']
-            # TODO: do the relative depth here
-            rel_depth = Image.fromarray(someFunc(seg_gt, seg_map))
+            cat_map = seg_npz['map']
+            rel_depth = Image.fromarray(
+                relative_depth.validate(seg_gt, cat_map, np.asarray(depth_gt)))
 
             if self.args.do_kb_crop is True:
                 height = image.height
@@ -199,8 +200,9 @@ class DataLoadPreprocess(Dataset):
                     # print('Missing gt for {}'.format(image_path))
 
                 if has_valid_depth:
-                    seg_gt, seg_map = seg_npz['seg'], seg_npz['map']
-                    rel_depth = someFunc(seg_gt, seg_map)
+                    seg_gt, cat_map = seg_npz['seg'], seg_npz['map']
+                    rel_depth = relative_depth.validate(
+                        seg_gt, cat_map, np.asarray(depth_gt))
                     depth_gt = np.asarray(depth_gt, dtype=np.float32)
                     depth_gt = np.expand_dims(depth_gt, axis=2)
                     rel_depth = np.expand_dims(rel_depth, axis=2)
