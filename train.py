@@ -300,6 +300,8 @@ def train(
             step += 1
             if not args.baseline_scheduler:
                 scheduler.step()  # type: ignore
+                current_lr = scheduler.get_last_lr()
+                wandb.log({"Learning Rate": current_lr}, step = step)
             ########################################################################################################
 
             if should_write and step % args.validate_every == 0:
