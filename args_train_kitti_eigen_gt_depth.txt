@@ -2,7 +2,7 @@
 --dataset kitti
 --lr 0.000357
 --wd 0.1
---div_factor 25
+--div_factor 50
 --final_div_factor 100
 --epochs 50
 --workers 11
