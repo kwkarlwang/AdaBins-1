@@ -1,3 +1,4 @@
+from numpy.core.fromnumeric import shape
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -119,7 +120,7 @@ class UnetAdaptiveBins(nn.Module):
         self.max_val = max_val
         self.encoder = Encoder(backend)
         self.adaptive_bins_layer = mViT(
-            128,
+            128 + 1,
             n_query_channels=128,
             patch_size=16,
             dim_out=n_bins,
@@ -134,7 +135,14 @@ class UnetAdaptiveBins(nn.Module):
         )
 
     def forward(self, x):
-        unet_out = self.decoder(self.encoder(x))
+        rgb_input = x[:, :3, :, :]
+        rel_depth = x[:, 3:4, :, :]
+        unet_out = self.decoder(self.encoder(rgb_input))
+        unet_out = torch.cat(
+            (unet_out,
+             torch.nn.functional.interpolate(rel_depth,
+                                             size=unet_out.shape[-2:])),
+            dim=1)
         bin_widths_normed, range_attention_maps = self.adaptive_bins_layer(
             unet_out)
         out = self.conv_out(range_attention_maps)
@@ -175,8 +183,7 @@ class UnetAdaptiveBins(nn.Module):
         basemodel = torch.hub.load(  # type: ignore
             "rwightman/gen-efficientnet-pytorch",
             basemodel_name,
-            pretrained=True,
-            in_chans=4)
+            pretrained=True)
         print("Done.")
 
         # Remove last layer
