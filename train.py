@@ -487,14 +487,6 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--w_vp",
-        "--w-vp",
-        default=0.3,
-        type=float,
-        help="weight value for chamfer loss",
-    )
-
-    parser.add_argument(
         "--div-factor",
         "--div_factor",
         default=25,
