@@ -1,4 +1,4 @@
---bs 12
+--bs 16
 --dataset kitti
 --lr 0.0004
 --wd 0.1
@@ -29,3 +29,4 @@
 --relative_depth False
 --scale_coefficient 1.0
 --baseline_scheduler
+--validate_every 500
