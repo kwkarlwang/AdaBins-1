@@ -1,4 +1,4 @@
---bs 12
+--bs 16
 --dataset kitti
 --lr 0.000357
 --wd 0.1
@@ -6,7 +6,7 @@
 --final_div_factor 100
 --epochs 100
 --workers 11
---name KITTI_REL
+--name KITTI_REL_PLATEU
 --n_bins 256
 --norm=linear
 --w_chamfer 0.1
