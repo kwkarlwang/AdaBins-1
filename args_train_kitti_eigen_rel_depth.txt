@@ -6,7 +6,7 @@
 --final_div_factor 100
 --epochs 100
 --workers 11
---name KITTI_REL_PLATEU
+--name KITTI_REL_PLATEU_FUSION
 --n_bins 256
 --norm=linear
 --w_chamfer 0.1
@@ -29,3 +29,4 @@
 --relative_depth True
 --scale_coefficient 1.0
 --validate_every 500
+--baseline_scheduler
