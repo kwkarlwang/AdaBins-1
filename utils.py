@@ -62,7 +62,7 @@ class RelDepth:
         if self.relative_depth and np.max(rdm) != 0:
             rdm: np.ndarray = rdm / np.max(rdm)
         rdm = rdm * self.scale_coefficient
-        return rdm
+        return rdm - 0.5
 
 
 class RunningAverage:
