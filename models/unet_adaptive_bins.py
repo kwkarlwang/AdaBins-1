@@ -120,7 +120,7 @@ class UnetAdaptiveBins(nn.Module):
         self.max_val = max_val
         self.encoder = Encoder(backend)
         self.adaptive_bins_layer = mViT(
-            128 + 1,
+            128,
             n_query_channels=128,
             patch_size=16,
             dim_out=n_bins,
@@ -133,16 +133,18 @@ class UnetAdaptiveBins(nn.Module):
             nn.Conv2d(128, n_bins, kernel_size=1, stride=1, padding=0),
             nn.Softmax(dim=1),
         )
+        self.fusion = nn.Sequential(
+            nn.Conv2d(2, 256, kernel_size=3, stride=1, padding=1),
+            nn.LeakyReLU(),
+            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
+            nn.LeakyReLU(),
+            nn.Conv2d(256, 1, kernel_size=3, stride=1, padding=1),
+        )
 
     def forward(self, x):
         rgb_input = x[:, :3, :, :]
         rel_depth = x[:, 3:4, :, :]
         unet_out = self.decoder(self.encoder(rgb_input))
-        unet_out = torch.cat(
-            (unet_out,
-             torch.nn.functional.interpolate(rel_depth,
-                                             size=unet_out.shape[-2:])),
-            dim=1)
         bin_widths_normed, range_attention_maps = self.adaptive_bins_layer(
             unet_out)
         out = self.conv_out(range_attention_maps)
@@ -163,6 +165,10 @@ class UnetAdaptiveBins(nn.Module):
         centers = centers.view(n, dout, 1, 1)
 
         pred = torch.sum(out * centers, dim=1, keepdim=True)
+
+        pred = self.fusion(
+            torch.cat((pred, F.interpolate(rel_depth, size=pred.shape[-2:])),
+                      dim=1))
 
         return bin_edges, pred
 
