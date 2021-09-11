@@ -28,3 +28,4 @@
 --garg_crop
 --relative_depth True
 --scale_coefficient 1.0
+--validate_every 500
