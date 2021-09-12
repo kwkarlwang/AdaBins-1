@@ -29,3 +29,4 @@
 --relative_depth True
 --scale_coefficient 1.0
 --baseline_scheduler
+--validate_every 2000
