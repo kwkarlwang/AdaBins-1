@@ -6,7 +6,7 @@
 --final_div_factor 100
 --epochs 100
 --workers 11
---name KITTI_REL_PLATEU
+--name KITTI_REL_PLATEU_ENC
 --n_bins 256
 --norm=linear
 --w_chamfer 0.1
