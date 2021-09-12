@@ -161,7 +161,9 @@ class UnetAdaptiveBins(nn.Module):
         return bin_edges, pred
 
     def get_1x_lr_params(self):  # lr/10 learning rate
-        return self.encoder.parameters()
+        modules = [self.encoder, self.depth_encoder]
+        for m in modules:
+            yield from m.parameters()
 
     def get_10x_lr_params(self):  # lr learning rate
         modules = [self.decoder, self.adaptive_bins_layer, self.conv_out]
