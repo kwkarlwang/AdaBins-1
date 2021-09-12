@@ -1,4 +1,4 @@
---bs 16
+--bs 8
 --dataset kitti
 --lr 0.000357
 --wd 0.1
@@ -28,5 +28,5 @@
 --garg_crop
 --relative_depth True
 --scale_coefficient 1.0
---validate_every 500
+--validate_every 2000
 --baseline_scheduler

@@ -11,18 +11,12 @@ class UpSampleBN(nn.Module):
         super(UpSampleBN, self).__init__()
 
         self._net = nn.Sequential(
-            nn.Conv2d(skip_input,
-                      output_features,
-                      kernel_size=3,
-                      stride=1,
-                      padding=1),
+            nn.Conv2d(skip_input, output_features, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(output_features),
             nn.LeakyReLU(),
-            nn.Conv2d(output_features,
-                      output_features,
-                      kernel_size=3,
-                      stride=1,
-                      padding=1),
+            nn.Conv2d(
+                output_features, output_features, kernel_size=3, stride=1, padding=1
+            ),
             nn.BatchNorm2d(output_features),
             nn.LeakyReLU(),
         )
@@ -30,8 +24,7 @@ class UpSampleBN(nn.Module):
     def forward(self, x, concat_with):
         up_x = F.interpolate(
             x,
-            size=[concat_with.size(2),
-                  concat_with.size(3)],
+            size=[concat_with.size(2), concat_with.size(3)],
             mode="bilinear",
             align_corners=True,
         )
@@ -49,26 +42,26 @@ class DecoderBN(nn.Module):
         super(DecoderBN, self).__init__()
         features = int(num_features)
 
-        self.conv2 = nn.Conv2d(bottleneck_features,
-                               features,
-                               kernel_size=1,
-                               stride=1,
-                               padding=1)
-        self.up1 = UpSampleBN(skip_input=features // 1 + 112 + 64,
-                              output_features=features // 2)
-        self.up2 = UpSampleBN(skip_input=features // 2 + 40 + 24,
-                              output_features=features // 4)
-        self.up3 = UpSampleBN(skip_input=features // 4 + 24 + 16,
-                              output_features=features // 8)
-        self.up4 = UpSampleBN(skip_input=features // 8 + 16 + 8,
-                              output_features=features // 16)
+        self.conv2 = nn.Conv2d(
+            bottleneck_features, features, kernel_size=1, stride=1, padding=1
+        )
+        self.up1 = UpSampleBN(
+            skip_input=features // 1 + 112 + 64, output_features=features // 2
+        )
+        self.up2 = UpSampleBN(
+            skip_input=features // 2 + 40 + 24, output_features=features // 4
+        )
+        self.up3 = UpSampleBN(
+            skip_input=features // 4 + 24 + 16, output_features=features // 8
+        )
+        self.up4 = UpSampleBN(
+            skip_input=features // 8 + 16 + 8, output_features=features // 16
+        )
 
         #         self.up5 = UpSample(skip_input=features // 16 + 3, output_features=features//16)
-        self.conv3 = nn.Conv2d(features // 16,
-                               num_classes,
-                               kernel_size=3,
-                               stride=1,
-                               padding=1)
+        self.conv3 = nn.Conv2d(
+            features // 16, num_classes, kernel_size=3, stride=1, padding=1
+        )
         # self.act_out = nn.Softmax(dim=1) if output_activation == 'softmax' else nn.Identity()
 
     def forward(self, features):
@@ -108,12 +101,7 @@ class Encoder(nn.Module):
 
 
 class UnetAdaptiveBins(nn.Module):
-    def __init__(self,
-                 backend,
-                 n_bins=100,
-                 min_val=0.1,
-                 max_val=10,
-                 norm="linear"):
+    def __init__(self, backend, n_bins=100, min_val=0.1, max_val=10, norm="linear"):
         super(UnetAdaptiveBins, self).__init__()
         self.num_classes = n_bins
         self.min_val = min_val
@@ -145,19 +133,19 @@ class UnetAdaptiveBins(nn.Module):
         rgb_input = x[:, :3, :, :]
         rel_depth = x[:, 3:4, :, :]
         unet_out = self.decoder(self.encoder(rgb_input))
-        bin_widths_normed, range_attention_maps = self.adaptive_bins_layer(
-            unet_out)
+        bin_widths_normed, range_attention_maps = self.adaptive_bins_layer(unet_out)
         out = self.conv_out(range_attention_maps)
 
         # Post process
         # n, c, h, w = out.shape
         # hist = torch.sum(out.view(n, c, h * w), dim=2) / (h * w)  # not used for training
 
-        bin_widths = (self.max_val -
-                      self.min_val) * bin_widths_normed  # .shape = N, dim_out
-        bin_widths = nn.functional.pad(bin_widths, (1, 0),
-                                       mode="constant",
-                                       value=self.min_val)
+        bin_widths = (
+            self.max_val - self.min_val
+        ) * bin_widths_normed  # .shape = N, dim_out
+        bin_widths = nn.functional.pad(
+            bin_widths, (1, 0), mode="constant", value=self.min_val
+        )
         bin_edges = torch.cumsum(bin_widths, dim=1)
 
         centers = 0.5 * (bin_edges[:, :-1] + bin_edges[:, 1:])
@@ -167,8 +155,8 @@ class UnetAdaptiveBins(nn.Module):
         pred = torch.sum(out * centers, dim=1, keepdim=True)
 
         pred = self.fusion(
-            torch.cat((pred, F.interpolate(rel_depth, size=pred.shape[-2:])),
-                      dim=1))
+            torch.cat((pred, F.interpolate(rel_depth, size=pred.shape[-2:])), dim=1)
+        )
 
         return bin_edges, pred
 
@@ -176,7 +164,7 @@ class UnetAdaptiveBins(nn.Module):
         return self.encoder.parameters()
 
     def get_10x_lr_params(self):  # lr learning rate
-        modules = [self.decoder, self.adaptive_bins_layer, self.conv_out]
+        modules = [self.decoder, self.adaptive_bins_layer, self.conv_out, self.fusion]
         for m in modules:
             yield from m.parameters()
 
@@ -187,9 +175,8 @@ class UnetAdaptiveBins(nn.Module):
         print("Loading base model ()...".format(basemodel_name), end="")
         # NOTE: 4 channels input
         basemodel = torch.hub.load(  # type: ignore
-            "rwightman/gen-efficientnet-pytorch",
-            basemodel_name,
-            pretrained=True)
+            "rwightman/gen-efficientnet-pytorch", basemodel_name, pretrained=True
+        )
         print("Done.")
 
         # Remove last layer
