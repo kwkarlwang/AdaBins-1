@@ -1,12 +1,12 @@
---bs 16
+--bs 8
 --dataset kitti
---lr 0.0004
+--lr 0.000357
 --wd 0.1
---div_factor 50
+--div_factor 25
 --final_div_factor 100
 --epochs 100
 --workers 11
---name KITTI_GT_PLATEU
+--name KITTI_GT_OC
 --n_bins 256
 --norm=linear
 --w_chamfer 0.1
@@ -28,5 +28,3 @@
 --garg_crop
 --relative_depth False
 --scale_coefficient 1.0
---baseline_scheduler
---validate_every 500
