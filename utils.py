@@ -12,9 +12,9 @@ from skimage.measure import label, regionprops
 
 
 class RelDepth:
-    def __init__(self,
-                 args,
-                 target_trainId=[5, 11, 12, 13, 14, 15, 16, 17, 18]) -> None:
+    def __init__(
+        self, args, target_trainId=[5, 11, 12, 13, 14, 15, 16, 17, 18]
+    ) -> None:
         self.target_trainId = target_trainId
         self.relative_depth = args.relative_depth
         self.scale_coefficient = args.scale_coefficient
@@ -22,11 +22,13 @@ class RelDepth:
     def transform(self, seg_mask: np.ndarray, cat_map: np.ndarray):
         pass
 
-    def validate(self,
-                 seg_mask: np.ndarray,
-                 cat_map: np.ndarray,
-                 depth: np.ndarray,
-                 use_mean=False) -> np.ndarray:
+    def validate(
+        self,
+        seg_mask: np.ndarray,
+        cat_map: np.ndarray,
+        depth: np.ndarray,
+        use_mean=False,
+    ) -> np.ndarray:
 
         seg_mask = seg_mask.copy()
         valid_id = []
@@ -62,7 +64,7 @@ class RelDepth:
         if self.relative_depth and np.max(rdm) != 0:
             rdm: np.ndarray = rdm / np.max(rdm)
         rdm = rdm * self.scale_coefficient
-        return rdm - 0.5
+        return rdm
 
 
 class RunningAverage:
@@ -131,20 +133,20 @@ def count_parameters(model):
 def compute_errors(gt, pred):
     thresh = np.maximum((gt / pred), (pred / gt))
     a1 = (thresh < 1.25).mean()
-    a2 = (thresh < 1.25**2).mean()
-    a3 = (thresh < 1.25**3).mean()
+    a2 = (thresh < 1.25 ** 2).mean()
+    a3 = (thresh < 1.25 ** 3).mean()
 
     abs_rel = np.mean(np.abs(gt - pred) / gt)
-    sq_rel = np.mean(((gt - pred)**2) / gt)
+    sq_rel = np.mean(((gt - pred) ** 2) / gt)
 
-    rmse = (gt - pred)**2
+    rmse = (gt - pred) ** 2
     rmse = np.sqrt(rmse.mean())
 
-    rmse_log = (np.log(gt) - np.log(pred))**2
+    rmse_log = (np.log(gt) - np.log(pred)) ** 2
     rmse_log = np.sqrt(rmse_log.mean())
 
     err = np.log(pred) - np.log(gt)
-    silog = np.sqrt(np.mean(err**2) - np.mean(err)**2) * 100
+    silog = np.sqrt(np.mean(err ** 2) - np.mean(err) ** 2) * 100
 
     log_10 = (np.abs(np.log10(gt) - np.log10(pred))).mean()
     return dict(
@@ -161,10 +163,9 @@ def compute_errors(gt, pred):
 
 
 class IoU:
-    def __init__(self,
-                 num_classes: int,
-                 ignore_index: int = None,
-                 device="cpu") -> None:
+    def __init__(
+        self, num_classes: int, ignore_index: int = None, device="cpu"
+    ) -> None:
         self.ignore_index = ignore_index
         self.num_classes = num_classes
         self.intersections = torch.zeros(num_classes).to(device)
@@ -205,23 +206,23 @@ class IoU:
 
 class _StreamMetrics(object):
     def __init__(self):
-        """ Overridden by subclasses """
+        """Overridden by subclasses"""
         raise NotImplementedError()
 
     def update(self, gt, pred):
-        """ Overridden by subclasses """
+        """Overridden by subclasses"""
         raise NotImplementedError()
 
     def get_results(self):
-        """ Overridden by subclasses """
+        """Overridden by subclasses"""
         raise NotImplementedError()
 
     def to_str(self, metrics):
-        """ Overridden by subclasses """
+        """Overridden by subclasses"""
         raise NotImplementedError()
 
     def reset(self):
-        """ Overridden by subclasses """
+        """Overridden by subclasses"""
         raise NotImplementedError()
 
 
@@ -229,19 +230,18 @@ class StreamSegMetrics(_StreamMetrics):
     """
     Stream Metrics for Semantic Segmentation Task
     """
+
     def __init__(self, num_classes):
         self.num_classes = num_classes
         self.confusion_matrix = np.zeros((num_classes, num_classes))
 
     def update(self, label_trues, label_preds):
         for lt, lp in zip(label_trues, label_preds):
-            self.confusion_matrix += self._fast_hist(lt.flatten(),
-                                                     lp.flatten())
+            self.confusion_matrix += self._fast_hist(lt.flatten(), lp.flatten())
 
     def compute(self):
         hist = self.confusion_matrix
-        iu = np.diag(hist) / (hist.sum(axis=1) + hist.sum(axis=0) -
-                              np.diag(hist))
+        iu = np.diag(hist) / (hist.sum(axis=1) + hist.sum(axis=0) - np.diag(hist))
         mean_iu = np.nanmean(iu)
         # freq = hist.sum(axis=1) / hist.sum()
         # fwavacc = (freq[freq > 0] * iu[freq > 0]).sum()
@@ -265,23 +265,22 @@ class StreamSegMetrics(_StreamMetrics):
         mask = (label_true > 0) & (label_true < self.num_classes)
         hist = np.bincount(
             self.num_classes * label_true[mask].astype(int) + label_pred[mask],
-            minlength=self.num_classes**2,
+            minlength=self.num_classes ** 2,
         ).reshape(self.num_classes, self.num_classes)
         return hist
 
     def get_results(self):
         """Returns accuracy score evaluation result.
-            - overall accuracy
-            - mean accuracy
-            - mean IU
-            - fwavacc
+        - overall accuracy
+        - mean accuracy
+        - mean IU
+        - fwavacc
         """
         hist = self.confusion_matrix
         acc = np.diag(hist).sum() / hist.sum()
         acc_cls = np.diag(hist) / hist.sum(axis=1)
         acc_cls = np.nanmean(acc_cls)
-        iu = np.diag(hist) / (hist.sum(axis=1) + hist.sum(axis=0) -
-                              np.diag(hist))
+        iu = np.diag(hist) / (hist.sum(axis=1) + hist.sum(axis=0) - np.diag(hist))
         mean_iu = np.nanmean(iu)
         freq = hist.sum(axis=1) / hist.sum()
         fwavacc = (freq[freq > 0] * iu[freq > 0]).sum()
