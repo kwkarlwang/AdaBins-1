@@ -349,7 +349,7 @@ class ToTensor(object):
         depth = sample["depth"]
         if self.mode == "train":
             depth = self.to_tensor(depth)
-            rel_depth = self.to_tensor(sample["rel_depth"])
+            rel_depth = self.to_tensor(sample["rel_depth"]).float()
             return {
                 "image": image,
                 "depth": depth,
@@ -360,7 +360,7 @@ class ToTensor(object):
             has_valid_depth = sample["has_valid_depth"]
             rel_depth = sample["rel_depth"]
             if has_valid_depth:
-                rel_depth = self.to_tensor(rel_depth)
+                rel_depth = self.to_tensor(rel_depth).float()
             return {
                 "image": image,
                 "depth": depth,

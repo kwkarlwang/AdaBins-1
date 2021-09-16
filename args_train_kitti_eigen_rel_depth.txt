@@ -4,7 +4,7 @@
 --wd 0.1
 --div_factor 25
 --final_div_factor 100
---epochs 100
+--epochs 40
 --workers 11
 --name KITTI_REL_ONECYCLE_FULL_DEPTH_MAP
 --n_bins 256
