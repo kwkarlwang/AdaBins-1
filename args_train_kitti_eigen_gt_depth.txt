@@ -4,9 +4,9 @@
 --wd 0.1
 --div_factor 25
 --final_div_factor 100
---epochs 100
+--epochs 25
 --workers 11
---name KITTI_GT_OC
+--name KITTI_GT_OC_25
 --n_bins 256
 --norm=linear
 --w_chamfer 0.1
