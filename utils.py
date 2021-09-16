@@ -26,7 +26,7 @@ class RelDepth:
                  seg_mask: np.ndarray,
                  cat_map: np.ndarray,
                  depth: np.ndarray,
-                 use_mean=False) -> np.ndarray:
+                 use_mean=False, constant_region_depth=False) -> np.ndarray:
 
         seg_mask = seg_mask.copy()
         valid_id = []
@@ -42,23 +42,26 @@ class RelDepth:
         label_img = label(seg_mask)
         regions = regionprops(label_img)
         # 3.
-        rdm = np.zeros_like(seg_mask, dtype=np.float32)
-        for region in regions:
-            mean_depth = 0
-            nnz_cnt = 0
-            y = region.coords[:, 0]
-            x = region.coords[:, 1]
-            if use_mean:
-                nnz_cnt = np.sum(depth[y, x] > 0)
-                if nnz_cnt:
-                    mean_depth = np.sum(depth[y, x]) / nnz_cnt
-                    rdm[y, x] = mean_depth
-            else:
-                flatten_depth = depth[y, x].flatten()
-                mask = flatten_depth > 0
-                if mask.sum() != 0:
-                    rdm[y, x] = np.median(flatten_depth[mask])
-
+        if constant_region_depth:
+            rdm = np.zeros_like(seg_mask, dtype=np.float32)
+            for region in regions:
+                mean_depth = 0
+                nnz_cnt = 0
+                y = region.coords[:, 0]
+                x = region.coords[:, 1]
+                if use_mean:
+                    nnz_cnt = np.sum(depth[y, x] > 0)
+                    if nnz_cnt:
+                        mean_depth = np.sum(depth[y, x]) / nnz_cnt
+                        rdm[y, x] = mean_depth
+                else:
+                    flatten_depth = depth[y, x].flatten()
+                    mask = flatten_depth > 0
+                    if mask.sum() != 0:
+                        rdm[y, x] = np.median(flatten_depth[mask])
+        else:
+            rdm = (seg_mask != 0) * depth
+            
         if self.relative_depth and np.max(rdm) != 0:
             rdm: np.ndarray = rdm / np.max(rdm)
         rdm = rdm * self.scale_coefficient
