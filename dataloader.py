@@ -127,8 +127,8 @@ class DataLoadPreprocess(Dataset):
             # rel_depth = Image.fromarray(depth_arr / depth_arr.max())
             rel_depth = Image.fromarray(
                 self.rel_depth_helper.validate(seg_gt, cat_map,
-                                               np.asarray(depth_gt) / 256.0),
-                                               constant_region_depth = self.args.constant_region_depth
+                                               np.asarray(depth_gt) / 256.0,
+                                               constant_region_depth = self.args.constant_region_depth),
               )
 
             if self.args.do_kb_crop is True:
