@@ -714,6 +714,13 @@ if __name__ == "__main__":
         help="Baseline scheduler reduce on plateu, otherwise use OneCycleLR",
     )
 
+    parser.add_argument(
+        "--constant_region_depth",
+        default=False,
+        help="if set, during training, each rdm consists of non-constant gt rel instance region depth",
+        action="store_true",
+    )
+
     if sys.argv.__len__() >= 2:
         arg_filename_with_prefix = "@" + sys.argv[1]
         args = parser.parse_args([arg_filename_with_prefix])

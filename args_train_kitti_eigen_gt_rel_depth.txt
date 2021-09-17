@@ -26,6 +26,6 @@
 --max_depth_eval 80
 --do_kb_crop
 --garg_crop
---relative_depth False
+--relative_depth True
 --scale_coefficient 1.0
 --constant_region_depth False
